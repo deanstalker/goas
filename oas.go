@@ -16,18 +16,24 @@ type OpenAPIObject struct {
 	Servers []ServerObject `json:"servers,omitempty"`
 	Paths   PathsObject    `json:"paths"` // Required
 
-	Components ComponentsOjbect      `json:"components,omitempty"` // Required for Authorization header
+	Components ComponentsObject      `json:"components,omitempty"` // Required for Authorization header
 	Security   []map[string][]string `json:"security,omitempty"`
 
-	// Tags
-	// ExternalDocs
+	Tags         []TagObject                 `json:"tags,omitempty"`
+	ExternalDocs ExternalDocumentationObject `json:"externalDocs,omitempty"`
 }
 
 type ServerObject struct {
 	URL         string `json:"url"`
 	Description string `json:"description,omitempty"`
 
-	// Variables
+	Variables map[string]ServerVariableObject `json:"variables,omitempty"`
+}
+
+type ServerVariableObject struct {
+	Enum        []string `json:"enum,omitempty"`
+	Default     string   `json:"default"`
+	Description string   `json:"description,omitempty"`
 }
 
 type InfoObject struct {
@@ -77,14 +83,14 @@ type OperationObject struct {
 	Description string             `json:"description,omitempty"`
 	Parameters  []ParameterObject  `json:"parameters,omitempty"`
 	RequestBody *RequestBodyObject `json:"requestBody,omitempty"`
+	OperationID string             `json:"operationId,omitempty"`
 
-	// Tags
-	// ExternalDocs
-	// OperationID
+	ExternalDocs ExternalDocumentationObject `json:"externalDocs,omitempty"`
+	Security map[string][]string `json:"security,omitempty"` // TODO implmement parser
+	Servers  []ServerObject      `json:"servers,omitempty"`  // TODO implement parser
+	
+	Deprecated bool `json:"deprecated,omitempty"`
 	// Callbacks
-	// Deprecated
-	// Security
-	// Servers
 }
 
 type ParameterObject struct {
@@ -99,8 +105,8 @@ type ParameterObject struct {
 	// Ref is used when ParameterOjbect is as a ReferenceObject
 	Ref string `json:"$ref,omitempty"`
 
-	// Deprecated
-	// AllowEmptyValue
+	Deprecated bool `json:"deprecated,omitempty"`
+	AllowEmptyValue bool `json:"allowEmptyValue,omitempty"`
 	// Style
 	// Explode
 	// AllowReserved
@@ -136,18 +142,20 @@ type SchemaObject struct {
 	FieldName          string              `json:"-"` // For goas
 	DisabledFieldNames map[string]struct{} `json:"-"` // For goas
 
-	Type        string                 `json:"type,omitempty"`
-	Format      string                 `json:"format,omitempty"`
-	Required    []string               `json:"required,omitempty"`
-	Properties  *orderedmap.OrderedMap `json:"properties,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	Items       *SchemaObject          `json:"items,omitempty"` // use ptr to prevent recursive error
-	Example     interface{}            `json:"example,omitempty"`
-	Deprecated  bool                   `json:"deprecated,omitempty"`
+	Type         string                       `json:"type,omitempty"`
+	Format       string                       `json:"format,omitempty"`
+	Required     []string                     `json:"required,omitempty"`
+	Properties   *orderedmap.OrderedMap       `json:"properties,omitempty"`
+	Description  string                       `json:"description,omitempty"`
+	Items        *SchemaObject                `json:"items,omitempty"` // use ptr to prevent recursive error
+	Example      interface{}                  `json:"example,omitempty"`
+	Deprecated   bool                         `json:"deprecated,omitempty"`
+	ExternalDocs *ExternalDocumentationObject `json:"externalDocs,omitempty"`
 
 	// Ref is used when SchemaObject is as a ReferenceObject
 	Ref string `json:"$ref,omitempty"`
 
+	// The following would usually be applied as annotations to the struct comments.
 	// Title
 	// MultipleOf
 	// Maximum
@@ -174,7 +182,6 @@ type SchemaObject struct {
 	// ReadOnly
 	// WriteOnly
 	// XML
-	// ExternalDocs
 }
 
 type ResponsesObject map[string]*ResponseObject // [status]ResponseObject
@@ -199,7 +206,7 @@ type HeaderObject struct {
 	Ref string `json:"$ref,omitempty"`
 }
 
-type ComponentsOjbect struct {
+type ComponentsObject struct {
 	Schemas         map[string]*SchemaObject         `json:"schemas,omitempty"`
 	SecuritySchemes map[string]*SecuritySchemeObject `json:"securitySchemes,omitempty"`
 
@@ -262,4 +269,15 @@ type SecuritySchemeOauthFlowObject struct {
 	AuthorizationUrl string            `json:"authorizationUrl,omitempty"`
 	TokenUrl         string            `json:"tokenUrl,omitempty"`
 	Scopes           map[string]string `json:"scopes"`
+}
+
+type ExternalDocumentationObject struct {
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url"`
+}
+
+type TagObject struct {
+	Name         string                      `json:"name"`
+	Description  string                      `json:"description,omitempty"`
+	ExternalDocs *ExternalDocumentationObject `json:"externalDocs,omitempty"`
 }

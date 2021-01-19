@@ -40,6 +40,7 @@ type parser struct {
 	KnownNamePkg  map[string]*pkg
 	KnownPathPkg  map[string]*pkg
 	KnownIDSchema map[string]*SchemaObject
+	KnownOperationIDs []string
 
 	TypeSpecs               map[string]map[string]*ast.TypeSpec
 	PkgPathAstPkgCache      map[string]map[string]*ast.Package
@@ -53,7 +54,7 @@ type pkg struct {
 	Path string
 }
 
-func newParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parser, error) {
+func NewParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parser, error) {
 	p := &parser{
 		KnownPkgs:               []pkg{},
 		KnownNamePkg:            map[string]*pkg{},
@@ -175,8 +176,13 @@ func newParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parse
 }
 
 func (p *parser) CreateOASFile(path string) error {
+	comments, err := p.parseFileComments()
+	if err != nil {
+		return err
+	}
+
 	// parse basic info
-	err := p.parseInfo()
+	err = p.parseInfo(comments)
 	if err != nil {
 		return err
 	}
@@ -214,19 +220,23 @@ func (p *parser) CreateOASFile(path string) error {
 	return err
 }
 
-func (p *parser) parseInfo() error {
+func (p *parser) parseFileComments() ([]*ast.CommentGroup, error) {
 	fileTree, err := goparser.ParseFile(token.NewFileSet(), p.MainFilePath, nil, goparser.ParseComments)
 	if err != nil {
-		return fmt.Errorf("can not parse general API information: %v", err)
+		return nil, fmt.Errorf("can not parse general API information: %v", err)
 	}
 
+	return fileTree.Comments, nil
+}
+
+func (p *parser) parseInfo(comments []*ast.CommentGroup) error {
 	// Security Scopes are defined at a different level in the hierarchy as where they need to end up in the OpenAPI structure,
 	// so a temporary list is needed.
 	oauthScopes := make(map[string]map[string]string, 0)
 
-	if fileTree.Comments != nil {
-		for i := range fileTree.Comments {
-			for _, comment := range strings.Split(fileTree.Comments[i].Text(), "\n") {
+	if comments != nil {
+		for i := range comments {
+			for _, comment := range strings.Split(comments[i].Text(), "\n") {
 				attribute := strings.ToLower(strings.Split(comment, " ")[0])
 				if len(attribute) == 0 || attribute[0] != '@' {
 					continue
@@ -272,7 +282,10 @@ func (p *parser) parseInfo() error {
 					p.OpenAPI.Info.License.URL = value
 				case "@server":
 					fields := strings.Split(value, " ")
-					s := ServerObject{URL: fields[0], Description: value[len(fields[0]):]}
+					s := ServerObject{
+						URL: fields[0],
+						Description: strings.TrimSpace(value[len(fields[0]):]),
+					}
 					p.OpenAPI.Servers = append(p.OpenAPI.Servers, s)
 				case "@security":
 					fields := strings.Split(value, " ")
@@ -281,59 +294,7 @@ func (p *parser) parseInfo() error {
 					}
 					p.OpenAPI.Security = append(p.OpenAPI.Security, security)
 				case "@securityscheme":
-					fields := strings.Split(value, " ")
-
-					var scheme *SecuritySchemeObject
-					if strings.Contains(fields[1], "oauth2") {
-						if oauthScheme, ok := p.OpenAPI.Components.SecuritySchemes[fields[0]]; ok {
-							scheme = oauthScheme
-						} else {
-							scheme = &SecuritySchemeObject{
-								Type:       "oauth2",
-								OAuthFlows: &SecuritySchemeOauthObject{},
-							}
-						}
-					}
-
-					if scheme == nil {
-						scheme = &SecuritySchemeObject{
-							Type: fields[1],
-						}
-					}
-					switch fields[1] {
-					case "http":
-						scheme.Scheme = fields[2]
-						scheme.Description = strings.Join(fields[3:], " ")
-					case "apiKey":
-						scheme.In = fields[2]
-						scheme.Name = fields[3]
-						scheme.Description = strings.Join(fields[4:], "")
-					case "openIdConnect":
-						scheme.OpenIdConnectUrl = fields[2]
-						scheme.Description = strings.Join(fields[3:], " ")
-					case "oauth2AuthCode":
-						scheme.OAuthFlows.AuthorizationCode = &SecuritySchemeOauthFlowObject{
-							AuthorizationUrl: fields[2],
-							TokenUrl:         fields[3],
-							Scopes:           make(map[string]string, 0),
-						}
-					case "oauth2Implicit":
-						scheme.OAuthFlows.Implicit = &SecuritySchemeOauthFlowObject{
-							AuthorizationUrl: fields[2],
-							Scopes:           make(map[string]string, 0),
-						}
-					case "oauth2ResourceOwnerCredentials":
-						scheme.OAuthFlows.ResourceOwnerPassword = &SecuritySchemeOauthFlowObject{
-							TokenUrl: fields[2],
-							Scopes:   make(map[string]string, 0),
-						}
-					case "oauth2ClientCredentials":
-						scheme.OAuthFlows.ClientCredentials = &SecuritySchemeOauthFlowObject{
-							TokenUrl: fields[2],
-							Scopes:   make(map[string]string, 0),
-						}
-					}
-					p.OpenAPI.Components.SecuritySchemes[fields[0]] = scheme
+					p.parseSecurityScheme(value)
 				case "@securityscope":
 					fields := strings.Split(value, " ")
 
@@ -342,6 +303,32 @@ func (p *parser) parseInfo() error {
 					}
 
 					oauthScopes[fields[0]][fields[1]] = strings.Join(fields[2:], " ")
+				case "@externaldoc":
+					externalDocs, err := p.parseExternalDocComment(strings.TrimSpace(comment[len(attribute):]))
+					if err != nil {
+						return err
+					}
+					if externalDocs == nil {
+						return fmt.Errorf("couldn't populate externalDocs")
+					}
+
+					p.OpenAPI.ExternalDocs = *externalDocs
+				case "@tag":
+					tag, err := p.parseTagComment(strings.TrimSpace(comment[len(attribute):]))
+					if err != nil {
+						return fmt.Errorf("%v", err)
+					}
+
+					p.OpenAPI.Tags = append(p.OpenAPI.Tags, *tag)
+				case "@servervariable":
+					for i, server := range p.OpenAPI.Servers {
+						if server.Variables == nil {
+							server.Variables = make(map[string]ServerVariableObject, 0)
+						}
+						server.Variables, _ = p.parseServerVariableComment(comment, server)
+
+						p.OpenAPI.Servers[i] = server
+					}
 				}
 			}
 		}
@@ -684,6 +671,22 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 			err = p.parseParamComment(pkgPath, pkgName, operation, strings.TrimSpace(comment[len(attribute):]))
 		case "@success", "@failure":
 			err = p.parseResponseComment(pkgPath, pkgName, operation, strings.TrimSpace(comment[len(attribute):]))
+		case "@id":
+			id := strings.TrimSpace(comment[len(attribute):])
+			if err = p.validateOperationID(id); err != nil {
+				return err
+			}
+			operation.OperationID = id
+		case "@externaldoc":
+			externalDocs, err := p.parseExternalDocComment(strings.TrimSpace(comment[len(attribute):]))
+			if err != nil {
+				return err
+			}
+			if externalDocs == nil {
+				return fmt.Errorf("couldn't populate externalDocs")
+			}
+
+			operation.ExternalDocs = *externalDocs
 		case "@resource", "@tag":
 			resource := strings.TrimSpace(comment[len(attribute):])
 			if resource == "" {
@@ -700,6 +703,160 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 		}
 	}
 	return nil
+}
+
+func (p *parser) parseSecurityScheme(value string) {
+	// {key} http {in} {name} {description}
+	// {key} apiKey {in} {name} {description}
+	// {key} openIdConnect {connect_url} {description}
+	// {key} oauth2AuthCode {auth_url} {token_url}
+	// {key} oauth2Implicit {auth_url}
+	// {key} oauth2ResourceOwnerCredentials {token_url}
+	// {key} oauth2ClientCredentials {token_url}
+	fields := strings.Split(value, " ")
+
+	var scheme *SecuritySchemeObject
+	if strings.Contains(fields[1], "oauth2") {
+		if oauthScheme, ok := p.OpenAPI.Components.SecuritySchemes[fields[0]]; ok {
+			scheme = oauthScheme
+		} else {
+			scheme = &SecuritySchemeObject{
+				Type:       "oauth2",
+				OAuthFlows: &SecuritySchemeOauthObject{},
+			}
+		}
+	}
+
+	if scheme == nil {
+		scheme = &SecuritySchemeObject{
+			Type: fields[1],
+		}
+	}
+	switch fields[1] {
+	case "http":
+		scheme.Scheme = fields[2]
+		if scheme.Scheme == "bearer" {
+			scheme.Description = strings.Join(fields[3:], " ")
+		} else {
+			scheme.Name = fields[3]
+			scheme.Description = strings.Join(fields[4:], " ")
+		}
+	case "apiKey":
+		scheme.In = fields[2]
+		scheme.Name = fields[3]
+		scheme.Description = strings.Join(fields[4:], " ")
+	case "openIdConnect":
+		scheme.OpenIdConnectUrl = fields[2]
+		scheme.Description = strings.Join(fields[3:], " ")
+	case "oauth2AuthCode":
+		scheme.OAuthFlows.AuthorizationCode = &SecuritySchemeOauthFlowObject{
+			AuthorizationUrl: fields[2],
+			TokenUrl:         fields[3],
+			Scopes:           make(map[string]string, 0),
+		}
+	case "oauth2Implicit":
+		scheme.OAuthFlows.Implicit = &SecuritySchemeOauthFlowObject{
+			AuthorizationUrl: fields[2],
+			Scopes:           make(map[string]string, 0),
+		}
+	case "oauth2ResourceOwnerCredentials":
+		scheme.OAuthFlows.ResourceOwnerPassword = &SecuritySchemeOauthFlowObject{
+			TokenUrl: fields[2],
+			Scopes:   make(map[string]string, 0),
+		}
+	case "oauth2ClientCredentials":
+		scheme.OAuthFlows.ClientCredentials = &SecuritySchemeOauthFlowObject{
+			TokenUrl: fields[2],
+			Scopes:   make(map[string]string, 0),
+		}
+	}
+	if p.OpenAPI.Components.SecuritySchemes == nil {
+		p.OpenAPI.Components.SecuritySchemes = make(map[string]*SecuritySchemeObject, 0)
+	}
+	p.OpenAPI.Components.SecuritySchemes[fields[0]] = scheme
+}
+
+func (p *parser) validateOperationID(id string) error {
+	for _, oid := range p.KnownOperationIDs {
+		if oid == id {
+			return fmt.Errorf("operationID %s is already in use", id)
+		}
+	}
+
+	p.KnownOperationIDs = append(p.KnownOperationIDs, id)
+	return nil
+}
+
+func (p *parser) parseServerVariableComment(comment string, server ServerObject) (map[string]ServerVariableObject, error) {
+	// {name} {default} {description} {enum1,enum2,...}
+	re := regexp.MustCompile(`([-\w]+)[\s]+"([^"]+)"[\s]*(?:"([^"]+)"(?:[\s]+"([\w,\d^"]+)"|$))`)
+	matches := re.FindStringSubmatch(comment)
+
+	if len(matches) != 5 {
+		return nil, fmt.Errorf(`parseServerVariableComment can not parse servervariable comment %s`, comment)
+	}
+
+	if !strings.Contains(server.URL, fmt.Sprintf(`{%s}`, matches[1])) {
+		return server.Variables, nil
+	}
+
+	serverVar := ServerVariableObject{
+		Enum:        nil,
+		Default:     matches[2],
+		Description: matches[3],
+	}
+
+	if matches[4] != "" {
+		enums := strings.Split(matches[4], ",")
+		serverVar.Enum = enums
+	}
+
+	server.Variables[matches[1]] = serverVar
+
+	return server.Variables, nil
+}
+
+func (p *parser) parseExternalDocComment(comment string) (*ExternalDocumentationObject, error) {
+	// {url}  {description}
+
+	re := regexp.MustCompile(`([\w?&#/_:.]+)[\s]+"([^"]+)`)
+	matches := re.FindStringSubmatch(comment)
+	if len(matches) != 3 {
+		return nil, fmt.Errorf("parseExternalDocComment can not parse param comment \"%s\"", comment)
+	}
+	url := matches[1]
+	description := matches[2]
+
+	return &ExternalDocumentationObject{
+		Description: description,
+		URL: url,
+	}, nil
+}
+
+func (p *parser) parseTagComment(comment string) (*TagObject, error) {
+	// {name} {description} {externalDocURL} {externalDocDesc}
+
+	re := regexp.MustCompile(`([-\w]+)[\s]+"([^"]+)"[\s]*(?:([\w\?\&\#\/_:\.]+)[\s]+"([^"]+)"|$)`)
+	matches := re.FindStringSubmatch(comment)
+
+	if len(matches) != 5 || matches[1] == "" || matches[2] == ""{
+		return nil, fmt.Errorf(`parseTagComment can not parse tag comment %s`, comment)
+	}
+
+	tag := &TagObject{
+		Name:         matches[1],
+		Description:  matches[2],
+		ExternalDocs: nil,
+	}
+
+	if matches[3] != "" && matches[4] != "" {
+		tag.ExternalDocs = &ExternalDocumentationObject{
+			Description: matches[4],
+			URL: matches[3],
+		}
+	}
+
+	return tag, nil
 }
 
 func (p *parser) parseParamComment(pkgPath, pkgName string, operation *OperationObject, comment string) error {

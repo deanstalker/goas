@@ -37,7 +37,7 @@ var flags = []cli.Flag{
 }
 
 func action(c *cli.Context) error {
-	p, err := newParser(c.GlobalString("module-path"), c.GlobalString("main-file-path"), c.GlobalString("handler-path"), c.GlobalBool("debug"))
+	p, err := NewParser(c.GlobalString("module-path"), c.GlobalString("main-file-path"), c.GlobalString("handler-path"), c.GlobalBool("debug"))
 	if err != nil {
 		return err
 	}

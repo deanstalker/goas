@@ -4,8 +4,9 @@ The project is based on
 - [uudashr/go-module](https://github.com/uudashr/go-module) repository. (currently deprecated)
 - [mikunalpha/goas](https://github.com/mikunalpha/goas) repository
 - [nicocesar/goas](https://github.com/nicocesar/goas) repository
+- [launchdarkly/goas](https://github.com/launchdarkly/goas) repository
 
-This fork adapts the goas library for LaunchDarkly's API.
+This fork takes the goas library further with a number of missing spec objects, validations and tests filled in.
 
 
 Generate [OpenAPI Specification](https://swagger.io/specification) json file with comments in Go.
@@ -17,7 +18,7 @@ Generate [OpenAPI Specification](https://swagger.io/specification) json file wit
 ## Install
 
 ```
-go get -u github.com/launchdarkly/goas
+go get -u github.com/deanstalker/goas
 ```
 
 ## Usage
@@ -38,11 +39,26 @@ The service description comments can be located in any of your .go files. They p
 // @TermsOfServiceUrl http://someurl.oxox
 // @LicenseName MIT
 // @LicenseURL https://en.wikipedia.org/wiki/MIT_License
-// @Server http://www.fake.com Server-1
+// @Server http://www{env}fake.com Server-1
 // @Server http://www.fake2.com Server-2
+// @ServerVariable env "." "Default environment, . for prod" ".,staging.,dev."
 // @Security AuthorizationHeader read write
 // @SecurityScheme AuthorizationHeader http bearer Input your token
+// @SecurityScope AuthorizationHeader read "Read-only"
+// @SecurityScope AuthorizationHeader write "Writable"
 ```
+
+#### Server Variables
+
+If a server variable is required, add the placeholder to the `@Server` comment's url. Then reference the placeholder in the
+`@ServerVariable` tag as follows:
+
+```go
+// @Server http://{subdomain}.fake.com Server 1
+// @ServerVariable subdomain "www" "Subdomains" "www,dev"
+```
+
+The Server Variable will only be applied to Server objects that contain a url with the nominated placeholder/s. 
 
 #### Security
 
