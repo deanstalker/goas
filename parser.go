@@ -109,7 +109,7 @@ func NewParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parse
 			return nil, err
 		}
 		for _, fn := range fns {
-			if isMainFile(fn) {
+			if IsMainFile(fn) {
 				mainFilePath = fn
 				break
 			}
@@ -130,7 +130,7 @@ func NewParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parse
 	p.debugf("main file path: %s", p.MainFilePath)
 
 	// get module name from go.mod file
-	moduleName := getModuleNameFromGoMod(goModFilePath)
+	moduleName := GetModuleNameFromGoMod(goModFilePath)
 	if moduleName == "" {
 		return nil, fmt.Errorf("cannot get module name from %s", goModFileInfo)
 	}
@@ -140,11 +140,11 @@ func NewParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parse
 	// check go module cache path is exist ($GOPATH/pkg/mod)
 	goPath := os.Getenv("GOPATH")
 	if goPath == "" {
-		user, err := user.Current()
+		u, err := user.Current()
 		if err != nil {
 			return nil, fmt.Errorf("cannot get current user: %s", err)
 		}
-		goPath = filepath.Join(user.HomeDir, "go")
+		goPath = filepath.Join(u.HomeDir, "go")
 	}
 	goModCachePath := filepath.Join(goPath, "pkg", "mod")
 	goModCacheInfo, err := os.Stat(goModCachePath)
@@ -208,7 +208,7 @@ func (p *parser) CreateOASFile(path string) error {
 
 	fd, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("Can not create the file %s: %v", path, err)
+		return fmt.Errorf("can not create the file %s: %v", path, err)
 	}
 	defer fd.Close()
 
@@ -317,7 +317,7 @@ func (p *parser) parseInfo(comments []*ast.CommentGroup) error {
 					return fmt.Errorf("couldn't populate externalDocs")
 				}
 
-				p.OpenAPI.ExternalDocs = *externalDocs
+				p.OpenAPI.ExternalDocs = externalDocs
 			case AttributeTag:
 				tag, err := p.parseTagComment(strings.TrimSpace(comment[len(attribute):]))
 				if err != nil {
@@ -401,7 +401,7 @@ func (p *parser) parseGoMod() error {
 		return err
 	}
 	for i := range goMod.Require {
-		pathRunes := []rune{}
+		var pathRunes []rune
 		for _, v := range goMod.Require[i].Mod.Path {
 			if !unicode.IsUpper(v) {
 				pathRunes = append(pathRunes, v)
@@ -686,17 +686,24 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 				return fmt.Errorf("couldn't populate externalDocs")
 			}
 
-			operation.ExternalDocs = *externalDocs
+			operation.ExternalDocs = externalDocs
 		case AttributeResource, AttributeTag:
 			resource := strings.TrimSpace(comment[len(attribute):])
 			if resource == "" {
 				resource = "others"
 			}
-			if !isInStringList(operation.Tags, resource) {
+			if !IsInStringList(operation.Tags, resource) {
 				operation.Tags = append(operation.Tags, resource)
 			}
 		case AttributeRoute, AttributeRouter:
 			err = p.parseRouteComment(operation, comment)
+		case AttributeSecurity:
+			security := strings.TrimSpace(comment[len(attribute):])
+			matches := strings.Split(security, " ")
+
+			operation.Security = append(operation.Security, map[string][]string{
+				matches[0]: {},
+			})
 		}
 		if err != nil {
 			return err
@@ -825,7 +832,7 @@ func (p *parser) parseExternalDocComment(comment string) (*ExternalDocumentation
 func (p *parser) parseTagComment(comment string) (*TagObject, error) {
 	// {name} {description} {externalDocURL} {externalDocDesc}
 
-	re := regexp.MustCompile(`([-\w]+)[\s]+"([^"]+)"[\s]*(?:([\w\?\&\#\/_:\.]+)[\s]+"([^"]+)"|$)`)
+	re := regexp.MustCompile(`([-\w]+)[\s]+"([^"]+)"[\s]*(?:([\w?&#/_:.]+)[\s]+"([^"]+)"|$)`)
 	matches := re.FindStringSubmatch(comment)
 
 	if len(matches) != 5 || matches[1] == "" || matches[2] == "" {
@@ -875,7 +882,7 @@ func (p *parser) parseParamComment(pkgPath, pkgName string, operation *Operation
 		if operation.RequestBody == nil {
 			operation.RequestBody = &RequestBodyObject{
 				Content: map[string]*MediaTypeObject{
-					ContentTypeForm: &MediaTypeObject{
+					ContentTypeForm: {
 						Schema: SchemaObject{
 							Type:       "object",
 							Properties: orderedmap.New(),
@@ -977,6 +984,7 @@ func (p *parser) parseParamComment(pkgPath, pkgName string, operation *Operation
 	return nil
 }
 
+//goland:noinspection ALL
 func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *OperationObject, comment string) error {
 	// {status}  {jsonType}  {goType}     {description}
 	// 201       object      models.User  "User Model"
@@ -1056,10 +1064,11 @@ func (p *parser) parseRouteComment(operation *OperationObject, comment string) e
 	sourceString := strings.TrimSpace(comment[len("@Router"):])
 
 	// /path [method]
+	//goland:noinspection ALL
 	re := regexp.MustCompile(`([\w\.\/\-{}]+)[^\[]+\[([^\]]+)`)
 	matches := re.FindStringSubmatch(sourceString)
 	if len(matches) != 3 {
-		return fmt.Errorf("Can not parse router comment \"%s\", skipped", comment)
+		return fmt.Errorf(`can not parse router comment "%s", skipped`, comment)
 	}
 
 	_, ok := p.OpenAPI.Paths[matches[1]]
@@ -1236,7 +1245,6 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 		_ = astIdent
 	} else if astStructType, ok := typeSpec.Type.(*ast.StructType); ok {
 		schemaObject.Type = "object"
-		schemaObject.Ref = addSchemaRefLinkPrefix(schemaObject.ID)
 		if astStructType.Fields != nil {
 			p.parseSchemaPropertiesFromStructFields(pkgPath, pkgName, &schemaObject, astStructType.Fields.List)
 		}
@@ -1354,6 +1362,9 @@ astFieldsLoop:
 					}
 				}
 				fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeObjectID)
+				if fieldSchema.Type != "" {
+					fieldSchema.Type = ""
+				}
 			}
 		} else if isGoTypeOASType(typeAsString) {
 			fieldSchema.Type = goTypesOASTypes[typeAsString]
@@ -1412,7 +1423,7 @@ astFieldsLoop:
 					if err != nil {
 						fieldSchema.Example = "invalid example"
 					} else {
-						sliceOfInterface := []interface{}{}
+						var sliceOfInterface []interface{}
 						err := json.Unmarshal(b, &sliceOfInterface)
 						if err != nil {
 							fieldSchema.Example = "invalid example"

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func isMainFile(path string) bool {
+func IsMainFile(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -36,7 +36,7 @@ func isMainFile(path string) bool {
 	return isMainPackage && hasMainFunc
 }
 
-func getModuleNameFromGoMod(path string) string {
+func GetModuleNameFromGoMod(path string) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -60,7 +60,7 @@ func getModuleNameFromGoMod(path string) string {
 	return moduleName
 }
 
-func isInStringList(list []string, s string) bool {
+func IsInStringList(list []string, s string) bool {
 	for i := range list {
 		if list[i] == s {
 			return true

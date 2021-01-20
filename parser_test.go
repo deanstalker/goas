@@ -69,9 +69,11 @@ func TestParseParamComment(t *testing.T) {
 		PkgName:            "github.com/deanstalker/goas",
 		Type:               "object",
 		Properties:         extDocMap,
-		Ref:                "#/components/schemas/ExternalDocumentationObject",
+		Ref:                "",
 		DisabledFieldNames: map[string]struct{}{},
 	})
+
+	dir, _ := os.Getwd()
 
 	tests := map[string]struct {
 		pkgPath   string
@@ -81,7 +83,7 @@ func TestParseParamComment(t *testing.T) {
 		expectErr error
 	}{
 		"string param in path": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `locale   path   string   true   "Locale code"`,
 			want: &OperationObject{
@@ -114,7 +116,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"string param in path without desc": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `locale   path   string   true`,
 			want: &OperationObject{
@@ -147,7 +149,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: errors.New(`parseParamComment can not parse param comment "locale   path   string   true"`),
 		},
 		"string in body": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `firstname   body   string   true   "First Name"`,
 			want: &OperationObject{
@@ -165,7 +167,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"[]string in body": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `address   body   []string   true   "Address"`,
 			want: &OperationObject{
@@ -186,7 +188,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"map[]string in body": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `address   body   map[]string   true   "Address"`,
 			want: &OperationObject{
@@ -205,7 +207,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"timestamp in path": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `time   path   time.Time   true   "Timestamp"`,
 			want: &OperationObject{
@@ -238,7 +240,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"file in body": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `image file ignored true "Image upload"`,
 			want: &OperationObject{
@@ -271,7 +273,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"files in body": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `image files ignored true "Image upload"`,
 			want: &OperationObject{
@@ -292,7 +294,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"form field with string in body": {
-			pkgPath: "/",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `content form string false "Content field"`,
 			want: &OperationObject{
@@ -313,7 +315,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"struct in body": {
-			pkgPath: "github.com/deanstalker/goas",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `externaldocs body ExternalDocumentationObject false "External Documentation"`,
 			want: &OperationObject{
@@ -353,7 +355,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"array of structs in body": {
-			pkgPath: "github.com/deanstalker/goas",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `externaldocs body []ExternalDocumentationObject false "External Documentation"`,
 			want: &OperationObject{
@@ -367,7 +369,6 @@ func TestParseParamComment(t *testing.T) {
 									PkgName:            "github.com/deanstalker/goas",
 									Type:               "object",
 									Properties:         extDocMap,
-									Ref:                "#/components/schemas/ExternalDocumentationObject",
 									DisabledFieldNames: map[string]struct{}{},
 								},
 							},
@@ -378,7 +379,7 @@ func TestParseParamComment(t *testing.T) {
 			expectErr: nil,
 		},
 		"map of structs in body": {
-			pkgPath: "github.com/deanstalker/goas",
+			pkgPath: dir,
 			pkgName: "main",
 			comment: `externaldocs body map[]ExternalDocumentationObject false "External Documentation"`,
 			want: &OperationObject{
@@ -746,7 +747,7 @@ func TestParseInfoSecurity(t *testing.T) {
 				"// @Title Test Run",
 				"// @Version 1.0.0",
 				"// @Description This is a test",
-				"// @SecurityScheme AuthorizationToken apiKey header X-Jumbo-Auth-Token Input your auth token",
+				"// @SecurityScheme AuthorizationToken apiKey header X-Auth-Token Input your auth token",
 				"// @SecurityScheme AuthorizationHeader http bearer Input your auth token",
 			},
 			wantSecurity: nil,
@@ -756,7 +757,7 @@ func TestParseInfoSecurity(t *testing.T) {
 					Description:      "Input your auth token",
 					Scheme:           "",
 					In:               "header",
-					Name:             "X-Jumbo-Auth-Token", // TODO remove references to the commercial name behind the change
+					Name:             "X-Auth-Token",
 					OpenIdConnectUrl: "",
 					OAuthFlows:       nil,
 				},
@@ -981,7 +982,7 @@ func TestParseInfoExternalDoc(t *testing.T) {
 					Description: "This is a test",
 					Version:     "1.0.0",
 				},
-				ExternalDocs: ExternalDocumentationObject{
+				ExternalDocs: &ExternalDocumentationObject{
 					Description: "Documentation",
 					URL:         "https://docs.io",
 				},
@@ -1002,10 +1003,7 @@ func TestParseInfoExternalDoc(t *testing.T) {
 					Description: "This is a test",
 					Version:     "1.0.0",
 				},
-				ExternalDocs: ExternalDocumentationObject{
-					Description: "",
-					URL:         "",
-				},
+				ExternalDocs: nil,
 			},
 			expectErr: errors.New(`parseExternalDocComment can not parse externaldoc comment "https://docs.io"`),
 		},
@@ -1209,7 +1207,7 @@ func TestParseOperation(t *testing.T) {
 						Summary:     "Get all the things",
 						Description: "Get all the items",
 						OperationID: "getAll",
-						ExternalDocs: ExternalDocumentationObject{
+						ExternalDocs: &ExternalDocumentationObject{
 							Description: "Get documentation",
 							URL:         "https://docs.io",
 						},
@@ -1248,7 +1246,7 @@ func TestParseOperation(t *testing.T) {
 						Summary:      "Get all the things",
 						Description:  "Get all the items",
 						OperationID:  "getAll",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{
@@ -1298,7 +1296,7 @@ func TestParseOperation(t *testing.T) {
 						Summary:      "Create a user",
 						Description:  "Create a user",
 						OperationID:  "createUser",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{
@@ -1361,7 +1359,7 @@ func TestParseOperation(t *testing.T) {
 						Summary:      "Update a user",
 						Description:  "Update a user",
 						OperationID:  "updateUser",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{
@@ -1435,7 +1433,7 @@ func TestParseOperation(t *testing.T) {
 						Summary:      "Replace a user",
 						Description:  "Replace a user",
 						OperationID:  "replaceUser",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{
@@ -1508,7 +1506,7 @@ func TestParseOperation(t *testing.T) {
 						Summary:      "Delete a user",
 						Description:  "Delete a user",
 						OperationID:  "deleteUser",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{
@@ -1567,7 +1565,7 @@ func TestParseOperation(t *testing.T) {
 						},
 						Summary:      "User pre-flight",
 						Description:  "User pre-flight",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{
@@ -1615,7 +1613,7 @@ func TestParseOperation(t *testing.T) {
 						Responses:    make(map[string]*ResponseObject),
 						Summary:      "User Head Lookup",
 						Description:  "User Head Lookup",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{
@@ -1663,7 +1661,7 @@ func TestParseOperation(t *testing.T) {
 						Responses:    make(map[string]*ResponseObject),
 						Summary:      "User Trace (should be disabled)",
 						Description:  "User Trace (should be disabled)",
-						ExternalDocs: ExternalDocumentationObject{},
+						ExternalDocs: nil,
 						Tags:         []string{"users"},
 						Parameters: []ParameterObject{
 							{

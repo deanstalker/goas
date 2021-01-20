@@ -52,8 +52,8 @@ type OpenAPIObject struct {
 	Components ComponentsObject      `json:"components,omitempty"` // Required for Authorization header
 	Security   []map[string][]string `json:"security,omitempty"`
 
-	Tags         []TagObject                 `json:"tags,omitempty"`
-	ExternalDocs ExternalDocumentationObject `json:"externalDocs,omitempty"`
+	Tags         []TagObject                  `json:"tags,omitempty"`
+	ExternalDocs *ExternalDocumentationObject `json:"externalDocs,omitempty"`
 }
 
 type ServerObject struct {
@@ -118,9 +118,9 @@ type OperationObject struct {
 	RequestBody *RequestBodyObject `json:"requestBody,omitempty"`
 	OperationID string             `json:"operationId,omitempty"`
 
-	ExternalDocs ExternalDocumentationObject `json:"externalDocs,omitempty"`
-	Security     map[string][]string         `json:"security,omitempty"` // TODO implmement parser
-	Servers      []ServerObject              `json:"servers,omitempty"`  // TODO implement parser
+	ExternalDocs *ExternalDocumentationObject `json:"externalDocs,omitempty"`
+	Security     []map[string][]string        `json:"security,omitempty"`
+	Servers      []ServerObject               `json:"servers,omitempty"` // TODO implement parser
 
 	Deprecated bool `json:"deprecated,omitempty"`
 	// Callbacks
