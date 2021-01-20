@@ -1,4 +1,5 @@
 # goas
+
 The project is based on  
 - [yvasiyarov/swagger](https://github.com/yvasiyarov/swagger) repository.  
 - [uudashr/go-module](https://github.com/uudashr/go-module) repository. (currently deprecated)
@@ -8,12 +9,16 @@ The project is based on
 
 This fork takes the goas library further with a number of missing spec objects, validations and tests filled in.
 
-
 Generate [OpenAPI Specification](https://swagger.io/specification) json file with comments in Go.
 
 ## Limit
 - Only support go module.
 - Anonymous struct field is not supported.
+
+## CI
+
+[![Build Status](https://travis-ci.com/deanstalker/goas.svg?branch=master)](https://travis-ci.com/deanstalker/goas)
+[![codecov](https://codecov.io/gh/deanstalker/goas/branch/master/graph/badge.svg?token=SAV4O3BSEU)](https://codecov.io/gh/deanstalker/goas)
 
 ## Install
 

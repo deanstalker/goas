@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -36,10 +37,10 @@ type parser struct {
 
 	OpenAPI OpenAPIObject
 
-	KnownPkgs     []pkg
-	KnownNamePkg  map[string]*pkg
-	KnownPathPkg  map[string]*pkg
-	KnownIDSchema map[string]*SchemaObject
+	KnownPkgs         []pkg
+	KnownNamePkg      map[string]*pkg
+	KnownPathPkg      map[string]*pkg
+	KnownIDSchema     map[string]*SchemaObject
 	KnownOperationIDs []string
 
 	TypeSpecs               map[string]map[string]*ast.TypeSpec
@@ -232,119 +233,118 @@ func (p *parser) parseFileComments() ([]*ast.CommentGroup, error) {
 func (p *parser) parseInfo(comments []*ast.CommentGroup) error {
 	// Security Scopes are defined at a different level in the hierarchy as where they need to end up in the OpenAPI structure,
 	// so a temporary list is needed.
-	oauthScopes := make(map[string]map[string]string, 0)
+	oauthScopes := make(map[string]map[string]string)
 
-	if comments != nil {
-		for i := range comments {
-			for _, comment := range strings.Split(comments[i].Text(), "\n") {
-				attribute := strings.ToLower(strings.Split(comment, " ")[0])
-				if len(attribute) == 0 || attribute[0] != '@' {
-					continue
+	for i := range comments {
+		for _, comment := range strings.Split(comments[i].Text(), "\n") {
+			attribute := strings.ToLower(strings.Split(comment, " ")[0])
+			if len(attribute) == 0 || attribute[0] != '@' {
+				continue
+			}
+			value := strings.TrimSpace(comment[len(attribute):])
+			if len(value) == 0 {
+				continue
+			}
+			// p.debug(attribute, value)
+			switch attribute {
+			case AttributeVersion:
+				p.OpenAPI.Info.Version = value
+			case AttributeTitle:
+				p.OpenAPI.Info.Title = value
+			case AttributeDescription:
+				p.OpenAPI.Info.Description = value
+			case AttributeTOSURL:
+				p.OpenAPI.Info.TermsOfService = value
+			case AttributeContactName:
+				if p.OpenAPI.Info.Contact == nil {
+					p.OpenAPI.Info.Contact = &ContactObject{}
 				}
-				value := strings.TrimSpace(comment[len(attribute):])
-				if len(value) == 0 {
-					continue
+				p.OpenAPI.Info.Contact.Name = value
+			case AttributeContactEmail:
+				if p.OpenAPI.Info.Contact == nil {
+					p.OpenAPI.Info.Contact = &ContactObject{}
 				}
-				// p.debug(attribute, value)
-				switch attribute {
-				case "@version":
-					p.OpenAPI.Info.Version = value
-				case "@title":
-					p.OpenAPI.Info.Title = value
-				case "@description":
-					p.OpenAPI.Info.Description = value
-				case "@termsofserviceurl":
-					p.OpenAPI.Info.TermsOfService = value
-				case "@contactname":
-					if p.OpenAPI.Info.Contact == nil {
-						p.OpenAPI.Info.Contact = &ContactObject{}
-					}
-					p.OpenAPI.Info.Contact.Name = value
-				case "@contactemail":
-					if p.OpenAPI.Info.Contact == nil {
-						p.OpenAPI.Info.Contact = &ContactObject{}
-					}
-					p.OpenAPI.Info.Contact.Email = value
-				case "@contacturl":
-					if p.OpenAPI.Info.Contact == nil {
-						p.OpenAPI.Info.Contact = &ContactObject{}
-					}
-					p.OpenAPI.Info.Contact.URL = value
-				case "@licensename":
-					if p.OpenAPI.Info.License == nil {
-						p.OpenAPI.Info.License = &LicenseObject{}
-					}
-					p.OpenAPI.Info.License.Name = value
-				case "@licenseurl":
-					if p.OpenAPI.Info.License == nil {
-						p.OpenAPI.Info.License = &LicenseObject{}
-					}
-					p.OpenAPI.Info.License.URL = value
-				case "@server":
-					fields := strings.Split(value, " ")
-					s := ServerObject{
-						URL: fields[0],
-						Description: strings.TrimSpace(value[len(fields[0]):]),
-					}
-					p.OpenAPI.Servers = append(p.OpenAPI.Servers, s)
-				case "@security":
-					fields := strings.Split(value, " ")
-					security := map[string][]string{
-						fields[0]: fields[1:],
-					}
-					p.OpenAPI.Security = append(p.OpenAPI.Security, security)
-				case "@securityscheme":
-					p.parseSecurityScheme(value)
-				case "@securityscope":
-					fields := strings.Split(value, " ")
+				p.OpenAPI.Info.Contact.Email = value
+			case AttributeContactURL:
+				if p.OpenAPI.Info.Contact == nil {
+					p.OpenAPI.Info.Contact = &ContactObject{}
+				}
+				p.OpenAPI.Info.Contact.URL = value
+			case AttributeLicenseName:
+				if p.OpenAPI.Info.License == nil {
+					p.OpenAPI.Info.License = &LicenseObject{}
+				}
+				p.OpenAPI.Info.License.Name = value
+			case AttributeLicenseURL:
+				if p.OpenAPI.Info.License == nil {
+					p.OpenAPI.Info.License = &LicenseObject{}
+				}
+				p.OpenAPI.Info.License.URL = value
+			case AttributeServer:
+				fields := strings.Split(value, " ")
+				_, err := url.ParseRequestURI(fields[0])
+				// allow server variable tokens through
+				if err != nil && !strings.Contains(fields[0], "{") {
+					return fmt.Errorf(`server: "%s" is not a valid URL`, fields[0])
+				}
+				s := ServerObject{
+					URL:         fields[0],
+					Description: strings.TrimSpace(value[len(fields[0]):]),
+				}
+				p.OpenAPI.Servers = append(p.OpenAPI.Servers, s)
+			case AttributeSecurity:
+				fields := strings.Split(value, " ")
+				security := map[string][]string{
+					fields[0]: fields[1:],
+				}
+				p.OpenAPI.Security = append(p.OpenAPI.Security, security)
+			case AttributeSecurityScheme:
+				p.parseSecurityScheme(value)
+			case AttributeSecurityScope:
+				fields := strings.Split(value, " ")
 
-					if _, ok := oauthScopes[fields[0]]; !ok {
-						oauthScopes[fields[0]] = make(map[string]string, 0)
-					}
+				if _, ok := oauthScopes[fields[0]]; !ok {
+					oauthScopes[fields[0]] = make(map[string]string)
+				}
 
-					oauthScopes[fields[0]][fields[1]] = strings.Join(fields[2:], " ")
-				case "@externaldoc":
-					externalDocs, err := p.parseExternalDocComment(strings.TrimSpace(comment[len(attribute):]))
-					if err != nil {
-						return err
-					}
-					if externalDocs == nil {
-						return fmt.Errorf("couldn't populate externalDocs")
-					}
+				oauthScopes[fields[0]][fields[1]] = strings.Join(fields[2:], " ")
+			case AttributeExternalDoc:
+				externalDocs, err := p.parseExternalDocComment(strings.TrimSpace(comment[len(attribute):]))
+				if err != nil {
+					return err
+				}
+				if externalDocs == nil {
+					return fmt.Errorf("couldn't populate externalDocs")
+				}
 
-					p.OpenAPI.ExternalDocs = *externalDocs
-				case "@tag":
-					tag, err := p.parseTagComment(strings.TrimSpace(comment[len(attribute):]))
-					if err != nil {
-						return fmt.Errorf("%v", err)
-					}
+				p.OpenAPI.ExternalDocs = *externalDocs
+			case AttributeTag:
+				tag, err := p.parseTagComment(strings.TrimSpace(comment[len(attribute):]))
+				if err != nil {
+					return fmt.Errorf("%v", err)
+				}
 
-					p.OpenAPI.Tags = append(p.OpenAPI.Tags, *tag)
-				case "@servervariable":
-					for i, server := range p.OpenAPI.Servers {
-						if server.Variables == nil {
-							server.Variables = make(map[string]ServerVariableObject, 0)
-						}
-						server.Variables, _ = p.parseServerVariableComment(comment, server)
-
-						p.OpenAPI.Servers[i] = server
+				p.OpenAPI.Tags = append(p.OpenAPI.Tags, *tag)
+			case AttributeServerVariable:
+				for i, server := range p.OpenAPI.Servers {
+					if server.Variables == nil {
+						server.Variables = make(map[string]ServerVariableObject)
 					}
+					server.Variables, _ = p.parseServerVariableComment(comment, server)
+
+					p.OpenAPI.Servers[i] = server
 				}
 			}
 		}
 	}
 
 	// Apply security scopes to their security schemes
-	for scheme, _ := range p.OpenAPI.Components.SecuritySchemes {
+	for scheme := range p.OpenAPI.Components.SecuritySchemes {
 		if p.OpenAPI.Components.SecuritySchemes[scheme].Type == "oauth2" {
 			if scopes, ok := oauthScopes[scheme]; ok {
 				p.OpenAPI.Components.SecuritySchemes[scheme].OAuthFlows.ApplyScopes(scopes)
 			}
 		}
-	}
-
-	if len(p.OpenAPI.Servers) < 1 {
-		p.OpenAPI.Servers = append(p.OpenAPI.Servers, ServerObject{URL: "/", Description: "Default Server URL"})
 	}
 
 	if p.OpenAPI.Info.Title == "" {
@@ -384,7 +384,7 @@ func (p *parser) parseModule() error {
 		}
 		return nil
 	}
-	filepath.Walk(p.ModulePath, walker)
+	_ = filepath.Walk(p.ModulePath, walker)
 	return nil
 }
 func fixer(path, version string) (string, error) {
@@ -441,7 +441,7 @@ func (p *parser) parseGoMod() error {
 			}
 			return nil
 		}
-		filepath.Walk(pkgPath, walker)
+		_ = filepath.Walk(pkgPath, walker)
 	}
 	if p.Debug {
 		for i := range p.KnownPkgs {
@@ -633,7 +633,7 @@ func isHidden(astComments []*ast.Comment) bool {
 			continue
 		}
 		attribute := strings.Fields(comment)[0]
-		if strings.ToLower(attribute) == "@hidden" {
+		if strings.ToLower(attribute) == AttributeHidden {
 			return true
 		}
 	}
@@ -663,21 +663,21 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 		}
 		attribute := strings.Fields(comment)[0]
 		switch strings.ToLower(attribute) {
-		case "@title":
+		case AttributeTitle:
 			operation.Summary = strings.TrimSpace(comment[len(attribute):])
-		case "@description":
-			operation.Description = strings.Join([]string{operation.Description, strings.TrimSpace(comment[len(attribute):])}, " ")
-		case "@param":
+		case AttributeDescription:
+			operation.Description = strings.TrimSpace(strings.Join([]string{operation.Description, strings.TrimSpace(comment[len(attribute):])}, " "))
+		case AttributeParam:
 			err = p.parseParamComment(pkgPath, pkgName, operation, strings.TrimSpace(comment[len(attribute):]))
-		case "@success", "@failure":
+		case AttributeSuccess, AttributeFailure:
 			err = p.parseResponseComment(pkgPath, pkgName, operation, strings.TrimSpace(comment[len(attribute):]))
-		case "@id":
+		case AttributeID:
 			id := strings.TrimSpace(comment[len(attribute):])
 			if err = p.validateOperationID(id); err != nil {
 				return err
 			}
 			operation.OperationID = id
-		case "@externaldoc":
+		case AttributeExternalDoc:
 			externalDocs, err := p.parseExternalDocComment(strings.TrimSpace(comment[len(attribute):]))
 			if err != nil {
 				return err
@@ -687,7 +687,7 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 			}
 
 			operation.ExternalDocs = *externalDocs
-		case "@resource", "@tag":
+		case AttributeResource, AttributeTag:
 			resource := strings.TrimSpace(comment[len(attribute):])
 			if resource == "" {
 				resource = "others"
@@ -695,7 +695,7 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 			if !isInStringList(operation.Tags, resource) {
 				operation.Tags = append(operation.Tags, resource)
 			}
-		case "@route", "@router":
+		case AttributeRoute, AttributeRouter:
 			err = p.parseRouteComment(operation, comment)
 		}
 		if err != nil {
@@ -752,39 +752,28 @@ func (p *parser) parseSecurityScheme(value string) {
 		scheme.OAuthFlows.AuthorizationCode = &SecuritySchemeOauthFlowObject{
 			AuthorizationUrl: fields[2],
 			TokenUrl:         fields[3],
-			Scopes:           make(map[string]string, 0),
+			Scopes:           make(map[string]string),
 		}
 	case "oauth2Implicit":
 		scheme.OAuthFlows.Implicit = &SecuritySchemeOauthFlowObject{
 			AuthorizationUrl: fields[2],
-			Scopes:           make(map[string]string, 0),
+			Scopes:           make(map[string]string),
 		}
 	case "oauth2ResourceOwnerCredentials":
 		scheme.OAuthFlows.ResourceOwnerPassword = &SecuritySchemeOauthFlowObject{
 			TokenUrl: fields[2],
-			Scopes:   make(map[string]string, 0),
+			Scopes:   make(map[string]string),
 		}
 	case "oauth2ClientCredentials":
 		scheme.OAuthFlows.ClientCredentials = &SecuritySchemeOauthFlowObject{
 			TokenUrl: fields[2],
-			Scopes:   make(map[string]string, 0),
+			Scopes:   make(map[string]string),
 		}
 	}
 	if p.OpenAPI.Components.SecuritySchemes == nil {
-		p.OpenAPI.Components.SecuritySchemes = make(map[string]*SecuritySchemeObject, 0)
+		p.OpenAPI.Components.SecuritySchemes = make(map[string]*SecuritySchemeObject)
 	}
 	p.OpenAPI.Components.SecuritySchemes[fields[0]] = scheme
-}
-
-func (p *parser) validateOperationID(id string) error {
-	for _, oid := range p.KnownOperationIDs {
-		if oid == id {
-			return fmt.Errorf("operationID %s is already in use", id)
-		}
-	}
-
-	p.KnownOperationIDs = append(p.KnownOperationIDs, id)
-	return nil
 }
 
 func (p *parser) parseServerVariableComment(comment string, server ServerObject) (map[string]ServerVariableObject, error) {
@@ -819,17 +808,17 @@ func (p *parser) parseServerVariableComment(comment string, server ServerObject)
 func (p *parser) parseExternalDocComment(comment string) (*ExternalDocumentationObject, error) {
 	// {url}  {description}
 
-	re := regexp.MustCompile(`([\w?&#/_:.]+)[\s]+"([^"]+)`)
+	re := regexp.MustCompile(`([\w?&#/_:.]+)[\s]+"([^"]+)"`)
 	matches := re.FindStringSubmatch(comment)
 	if len(matches) != 3 {
-		return nil, fmt.Errorf("parseExternalDocComment can not parse param comment \"%s\"", comment)
+		return nil, fmt.Errorf("parseExternalDocComment can not parse externaldoc comment \"%s\"", comment)
 	}
-	url := matches[1]
+	extURL := matches[1]
 	description := matches[2]
 
 	return &ExternalDocumentationObject{
 		Description: description,
-		URL: url,
+		URL:         extURL,
 	}, nil
 }
 
@@ -839,7 +828,7 @@ func (p *parser) parseTagComment(comment string) (*TagObject, error) {
 	re := regexp.MustCompile(`([-\w]+)[\s]+"([^"]+)"[\s]*(?:([\w\?\&\#\/_:\.]+)[\s]+"([^"]+)"|$)`)
 	matches := re.FindStringSubmatch(comment)
 
-	if len(matches) != 5 || matches[1] == "" || matches[2] == ""{
+	if len(matches) != 5 || matches[1] == "" || matches[2] == "" {
 		return nil, fmt.Errorf(`parseTagComment can not parse tag comment %s`, comment)
 	}
 
@@ -852,7 +841,7 @@ func (p *parser) parseTagComment(comment string) (*TagObject, error) {
 	if matches[3] != "" && matches[4] != "" {
 		tag.ExternalDocs = &ExternalDocumentationObject{
 			Description: matches[4],
-			URL: matches[3],
+			URL:         matches[3],
 		}
 	}
 
@@ -934,7 +923,7 @@ func (p *parser) parseParamComment(pkgPath, pkgName string, operation *Operation
 		}
 		if goType == "time.Time" {
 			var err error
-			parameterObject.Schema, err = p.parseSchemaObject(pkgPath, pkgName, goType)
+			parameterObject.Schema, err = p.parseSchemaObject(pkgPath, pkgName, name, goType)
 			if err != nil {
 				p.debug("parseResponseComment cannot parse goType", goType)
 			}
@@ -958,7 +947,7 @@ func (p *parser) parseParamComment(pkgPath, pkgName string, operation *Operation
 	}
 
 	if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[]") || goType == "time.Time" {
-		schema, err := p.parseSchemaObject(pkgPath, pkgName, goType)
+		schema, err := p.parseSchemaObject(pkgPath, pkgName, name, goType)
 		if err != nil {
 			p.debug("parseResponseComment cannot parse goType", goType)
 		}
@@ -1031,7 +1020,7 @@ func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *Operat
 		re = regexp.MustCompile(`\[\w*\]`)
 		goType := re.ReplaceAllString(goTypeRaw, "[]")
 		if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[]") {
-			schema, err := p.parseSchemaObject(pkgPath, pkgName, goType)
+			schema, err := p.parseSchemaObject(pkgPath, pkgName, "", goType)
 			if err != nil {
 				p.debug("parseResponseComment: cannot parse goType", goType)
 			}
@@ -1110,11 +1099,11 @@ func (p *parser) registerType(pkgPath, pkgName, typeName string) (string, error)
 		var schemaObject *SchemaObject
 
 		// see if we've already parsed this type
-		if knownObj, ok := p.KnownIDSchema[genSchemeaObjectID(pkgName, typeName)]; ok {
+		if knownObj, ok := p.KnownIDSchema[genSchemaObjectID(pkgName, typeName)]; ok {
 			schemaObject = knownObj
 		} else {
 			// if not, parse it now
-			parsedObject, err := p.parseSchemaObject(pkgPath, pkgName, typeName)
+			parsedObject, err := p.parseSchemaObject(pkgPath, pkgName, "", typeName)
 			if err != nil {
 				return "", err
 			}
@@ -1125,7 +1114,7 @@ func (p *parser) registerType(pkgPath, pkgName, typeName string) (string, error)
 	return registerTypeName, nil
 }
 
-func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaObject, error) {
+func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName string) (*SchemaObject, error) {
 	var typeSpec *ast.TypeSpec
 	var exist bool
 	var schemaObject SchemaObject
@@ -1135,12 +1124,12 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaOb
 	if strings.HasPrefix(typeName, "[]") {
 		schemaObject.Type = "array"
 		itemTypeName := typeName[2:]
-		schema, ok := p.KnownIDSchema[genSchemeaObjectID(pkgName, itemTypeName)]
+		schema, ok := p.KnownIDSchema[genSchemaObjectID(pkgName, itemTypeName)]
 		if ok {
 			schemaObject.Items = &SchemaObject{Ref: addSchemaRefLinkPrefix(schema.ID)}
 			return &schemaObject, nil
 		}
-		schemaObject.Items, err = p.parseSchemaObject(pkgPath, pkgName, itemTypeName)
+		schemaObject.Items, err = p.parseSchemaObject(pkgPath, pkgName, fieldName, itemTypeName)
 		if err != nil {
 			return nil, err
 		}
@@ -1148,17 +1137,20 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaOb
 	} else if strings.HasPrefix(typeName, "map[]") {
 		schemaObject.Type = "object"
 		itemTypeName := typeName[5:]
-		schema, ok := p.KnownIDSchema[genSchemeaObjectID(pkgName, itemTypeName)]
+		schema, ok := p.KnownIDSchema[genSchemaObjectID(pkgName, itemTypeName)]
 		if ok {
 			schemaObject.Items = &SchemaObject{Ref: addSchemaRefLinkPrefix(schema.ID)}
 			return &schemaObject, nil
 		}
-		schemaProperty, err := p.parseSchemaObject(pkgPath, pkgName, itemTypeName)
+		schemaProperty, err := p.parseSchemaObject(pkgPath, pkgName, fieldName, itemTypeName)
 		if err != nil {
 			return nil, err
 		}
 		schemaObject.Properties = orderedmap.New()
-		schemaObject.Properties.Set("key", schemaProperty)
+		if fieldName == "" {
+			fieldName = "key" // TODO temporary
+		}
+		schemaObject.Properties.Set(fieldName, schemaProperty)
 		return &schemaObject, nil
 	} else if typeName == "time.Time" {
 		schemaObject.Type = "string"
@@ -1189,13 +1181,14 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaOb
 			}
 		}
 		schemaObject.PkgName = pkgName
-		schemaObject.ID = genSchemeaObjectID(pkgName, typeName)
+		schemaObject.ID = genSchemaObjectID(pkgName, typeName)
 		p.KnownIDSchema[schemaObject.ID] = &schemaObject
 	} else {
 		guessPkgName := strings.Join(typeNameParts[:len(typeNameParts)-1], "/")
 		guessPkgPath := ""
 		for i := range p.KnownPkgs {
-			if guessPkgName == p.KnownPkgs[i].Name {
+			if strings.Contains(p.KnownPkgs[i].Name, guessPkgName) {
+				guessPkgName = p.KnownPkgs[i].Name
 				guessPkgPath = p.KnownPkgs[i].Path
 				break
 			}
@@ -1229,7 +1222,11 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaOb
 				return &schemaObject, nil
 			}
 			schemaObject.PkgName = guessPkgName
-			schemaObject.ID = genSchemeaObjectID(guessPkgName, guessTypeName)
+			schemaObject.ID = genSchemaObjectID(guessPkgName, guessTypeName)
+			p.KnownIDSchema[schemaObject.ID] = &schemaObject
+		} else {
+			schemaObject.PkgName = guessPkgName
+			schemaObject.ID = genSchemaObjectID(guessPkgName, guessTypeName)
 			p.KnownIDSchema[schemaObject.ID] = &schemaObject
 		}
 		pkgPath, pkgName = guessPkgPath, guessPkgName
@@ -1239,6 +1236,7 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaOb
 		_ = astIdent
 	} else if astStructType, ok := typeSpec.Type.(*ast.StructType); ok {
 		schemaObject.Type = "object"
+		schemaObject.Ref = addSchemaRefLinkPrefix(schemaObject.ID)
 		if astStructType.Fields != nil {
 			p.parseSchemaPropertiesFromStructFields(pkgPath, pkgName, &schemaObject, astStructType.Fields.List)
 		}
@@ -1248,11 +1246,11 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaOb
 		typeAsString := p.getTypeAsString(astArrayType.Elt)
 		typeAsString = strings.TrimLeft(typeAsString, "*")
 		if !isBasicGoType(typeAsString) {
-			schemaItemsSchemeaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
+			schemaItemsSchemaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 			if err != nil {
 				p.debug("parseSchemaObject parse array items err:", err)
 			} else {
-				schemaObject.Items.Ref = addSchemaRefLinkPrefix(schemaItemsSchemeaObjectID)
+				schemaObject.Items.Ref = addSchemaRefLinkPrefix(schemaItemsSchemaObjectID)
 			}
 		} else if isGoTypeOASType(typeAsString) {
 			schemaObject.Items.Type = goTypesOASTypes[typeAsString]
@@ -1261,15 +1259,18 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, typeName string) (*SchemaOb
 		schemaObject.Type = "object"
 		schemaObject.Properties = orderedmap.New()
 		propertySchema := &SchemaObject{}
-		schemaObject.Properties.Set("key", propertySchema)
+		if fieldName == "" {
+			fieldName = "key" // TODO temporary
+		}
+		schemaObject.Properties.Set(fieldName, propertySchema)
 		typeAsString := p.getTypeAsString(astMapType.Value)
 		typeAsString = strings.TrimLeft(typeAsString, "*")
 		if !isBasicGoType(typeAsString) {
-			schemaItemsSchemeaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
+			schemaItemsSchemaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 			if err != nil {
 				p.debug("parseSchemaObject parse array items err:", err)
 			} else {
-				propertySchema.Ref = addSchemaRefLinkPrefix(schemaItemsSchemeaObjectID)
+				propertySchema.Ref = addSchemaRefLinkPrefix(schemaItemsSchemaObjectID)
 			}
 		} else if isGoTypeOASType(typeAsString) {
 			propertySchema.Type = goTypesOASTypes[typeAsString]
@@ -1316,43 +1317,43 @@ astFieldsLoop:
 		typeAsString := p.getTypeAsString(astField.Type)
 		typeAsString = strings.TrimLeft(typeAsString, "*")
 		if strings.HasPrefix(typeAsString, "[]") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if strings.HasPrefix(typeAsString, "map[]") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if typeAsString == "time.Time" {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if strings.HasPrefix(typeAsString, "interface{}") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if !isBasicGoType(typeAsString) {
-			fieldSchemaSchemeaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
+			fieldSchemaSchemeObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 			if err != nil {
 				p.debug("parseSchemaPropertiesFromStructFields err:", err)
 			} else {
-				fieldSchema.ID = fieldSchemaSchemeaObjectID
-				schema, ok := p.KnownIDSchema[fieldSchemaSchemeaObjectID]
+				fieldSchema.ID = fieldSchemaSchemeObjectID
+				schema, ok := p.KnownIDSchema[fieldSchemaSchemeObjectID]
 				if ok {
 					fieldSchema.Type = schema.Type
 					if schema.Items != nil {
 						fieldSchema.Items = schema.Items
 					}
 				}
-				fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeaObjectID)
+				fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeObjectID)
 			}
 		} else if isGoTypeOASType(typeAsString) {
 			fieldSchema.Type = goTypesOASTypes[typeAsString]
@@ -1460,43 +1461,43 @@ astFieldsLoop:
 		typeAsString := p.getTypeAsString(astField.Type)
 		typeAsString = strings.TrimLeft(typeAsString, "*")
 		if strings.HasPrefix(typeAsString, "[]") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if strings.HasPrefix(typeAsString, "map[]") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if typeAsString == "time.Time" {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if strings.HasPrefix(typeAsString, "interface{}") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, typeAsString)
+			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
 				p.debug(err)
 				return
 			}
 		} else if !isBasicGoType(typeAsString) {
-			fieldSchemaSchemeaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
+			fieldSchemaSchemeObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 			if err != nil {
 				p.debug("parseSchemaPropertiesFromStructFields err:", err)
 			} else {
-				fieldSchema.ID = fieldSchemaSchemeaObjectID
-				schema, ok := p.KnownIDSchema[fieldSchemaSchemeaObjectID]
+				fieldSchema.ID = fieldSchemaSchemeObjectID
+				schema, ok := p.KnownIDSchema[fieldSchemaSchemeObjectID]
 				if ok {
 					fieldSchema.Type = schema.Type
 					if schema.Items != nil {
 						fieldSchema.Items = schema.Items
 					}
 				}
-				fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeaObjectID)
+				fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeObjectID)
 			}
 		} else if isGoTypeOASType(typeAsString) {
 			fieldSchema.Type = goTypesOASTypes[typeAsString]
@@ -1581,4 +1582,15 @@ func (p *parser) debugf(format string, args ...interface{}) {
 	if p.Debug {
 		log.Printf(format, args...)
 	}
+}
+
+func (p *parser) validateOperationID(id string) error {
+	for _, oid := range p.KnownOperationIDs {
+		if oid == id {
+			return fmt.Errorf("operationID %s is already in use", id)
+		}
+	}
+
+	p.KnownOperationIDs = append(p.KnownOperationIDs, id)
+	return nil
 }

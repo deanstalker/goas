@@ -8,6 +8,39 @@ const (
 	ContentTypeText = "text/plain"
 	ContentTypeJson = "application/json"
 	ContentTypeForm = "multipart/form-data"
+
+	AttributeTitle        = "@title"
+	AttributeVersion      = "@version"
+	AttributeDescription  = "@description"
+	AttributeTOSURL       = "@termsofserviceurl"
+	AttributeContactName  = "@contactname"
+	AttributeContactEmail = "@contactemail"
+	AttributeContactURL   = "@contacturl"
+
+	AttributeLicenseName = "@licensename"
+	AttributeLicenseURL  = "@licenseurl"
+
+	AttributeServer         = "@server"
+	AttributeServerVariable = "@servervariable"
+
+	AttributeSecurity       = "@security"
+	AttributeSecurityScheme = "@securityscheme"
+	AttributeSecurityScope  = "@securityscope"
+
+	AttributeExternalDoc = "@externaldoc"
+	AttributeTag         = "@tag"
+
+	AttributeHidden = "@hidden"
+
+	AttributeParam   = "@param"
+	AttributeSuccess = "@success"
+	AttributeFailure = "@failure"
+
+	AttributeID = "@id"
+
+	AttributeResource = "@resource"
+	AttributeRoute    = "@route"
+	AttributeRouter   = "@router"
 )
 
 type OpenAPIObject struct {
@@ -86,9 +119,9 @@ type OperationObject struct {
 	OperationID string             `json:"operationId,omitempty"`
 
 	ExternalDocs ExternalDocumentationObject `json:"externalDocs,omitempty"`
-	Security map[string][]string `json:"security,omitempty"` // TODO implmement parser
-	Servers  []ServerObject      `json:"servers,omitempty"`  // TODO implement parser
-	
+	Security     map[string][]string         `json:"security,omitempty"` // TODO implmement parser
+	Servers      []ServerObject              `json:"servers,omitempty"`  // TODO implement parser
+
 	Deprecated bool `json:"deprecated,omitempty"`
 	// Callbacks
 }
@@ -105,7 +138,7 @@ type ParameterObject struct {
 	// Ref is used when ParameterOjbect is as a ReferenceObject
 	Ref string `json:"$ref,omitempty"`
 
-	Deprecated bool `json:"deprecated,omitempty"`
+	Deprecated      bool `json:"deprecated,omitempty"`
 	AllowEmptyValue bool `json:"allowEmptyValue,omitempty"`
 	// Style
 	// Explode
@@ -114,9 +147,9 @@ type ParameterObject struct {
 	// Content
 }
 
-type ReferenceObject struct {
-	Ref string `json:"$ref,omitempty"`
-}
+//type ReferenceObject struct {
+//	Ref string `json:"$ref,omitempty"`
+//}
 
 type RequestBodyObject struct {
 	Content map[string]*MediaTypeObject `json:"content"` // Required
@@ -271,13 +304,14 @@ type SecuritySchemeOauthFlowObject struct {
 	Scopes           map[string]string `json:"scopes"`
 }
 
+// ExternalDocumentationObject ...
 type ExternalDocumentationObject struct {
 	Description string `json:"description,omitempty"`
 	URL         string `json:"url"`
 }
 
 type TagObject struct {
-	Name         string                      `json:"name"`
-	Description  string                      `json:"description,omitempty"`
+	Name         string                       `json:"name"`
+	Description  string                       `json:"description,omitempty"`
 	ExternalDocs *ExternalDocumentationObject `json:"externalDocs,omitempty"`
 }

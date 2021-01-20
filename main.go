@@ -54,7 +54,7 @@ func main() {
 	app.Copyright = "(c) 2018 mikun800527@gmail.com"
 	app.HideHelp = true
 	app.OnUsageError = func(c *cli.Context, err error, isSubcommand bool) error {
-		cli.ShowAppHelp(c)
+		_ = cli.ShowAppHelp(c)
 		return nil
 	}
 	app.Flags = flags
