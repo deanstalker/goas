@@ -7,86 +7,25 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/iancoleman/orderedmap"
-
 	"github.com/stretchr/testify/assert"
 )
 
 func TestParseParamComment(t *testing.T) {
-
-	fileProp := orderedmap.New()
-	fileProp.Set("image", &SchemaObject{
-		ID:                 "",
-		PkgName:            "",
-		FieldName:          "",
-		DisabledFieldNames: nil,
-		Type:               "string",
-		Format:             "binary",
-		Required:           nil,
-		Properties:         nil,
-		Description:        "Image upload",
-		Items:              nil,
-		Example:            nil,
-		Deprecated:         false,
-		ExternalDocs:       nil,
-		Ref:                "",
-	})
-
-	filesProp := orderedmap.New()
-	filesProp.Set("image", &SchemaObject{
-		Type:        "array",
-		Description: "Image upload",
-		Items:       &SchemaObject{Type: "string", Format: "binary"},
-	})
-
-	stringProp := orderedmap.New()
-	stringProp.Set("content", &SchemaObject{
-		Type:        "string",
-		Format:      "string",
-		Description: "Content field",
-	})
-
-	mapStringProp := orderedmap.New()
-	mapStringProp.Set("address", &SchemaObject{
-		Type:        "string",
-		Format:      "",
-		Description: "",
-	})
-
-	extDocMap := orderedmap.New()
-	extDocMap.Set("description", &SchemaObject{
-		FieldName: "Description",
-		Type:      "string",
-	})
-	extDocMap.Set("url", &SchemaObject{
-		FieldName: "URL",
-		Type:      "string",
-	})
-
-	extDocProp := orderedmap.New()
-	extDocProp.Set("externaldocs", &SchemaObject{
-		ID:                 "ExternalDocumentationObject",
-		PkgName:            "github.com/deanstalker/goas",
-		Type:               "object",
-		Properties:         extDocMap,
-		Ref:                "",
-		DisabledFieldNames: map[string]struct{}{},
-	})
-
 	dir, _ := os.Getwd()
 
 	tests := map[string]struct {
-		pkgPath   string
-		pkgName   string
-		comment   string
-		want      *OperationObject
-		expectErr error
+		pkgPath    string
+		pkgName    string
+		comment    string
+		wantOp     *OperationObject
+		wantSchema map[string]*SchemaObject
+		expectErr  error
 	}{
 		"string param in path": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `locale   path   string   true   "Locale code"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				Parameters: []ParameterObject{
 					{
 						Name:        "locale",
@@ -95,31 +34,21 @@ func TestParseParamComment(t *testing.T) {
 						Required:    true,
 						Example:     nil,
 						Schema: &SchemaObject{
-							ID:                 "",
-							PkgName:            "",
-							FieldName:          "",
-							DisabledFieldNames: nil,
-							Type:               "string",
-							Format:             "string",
-							Required:           nil,
-							Properties:         nil,
-							Description:        "Locale code",
-							Items:              nil,
-							Example:            nil,
-							Deprecated:         false,
-							Ref:                "",
+							Type:        "string",
+							Format:      "string",
+							Description: "Locale code",
 						},
-						Ref: "",
 					},
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"string param in path without desc": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `locale   path   string   true`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				Parameters: []ParameterObject{
 					{
 						Name:        "locale",
@@ -128,34 +57,24 @@ func TestParseParamComment(t *testing.T) {
 						Required:    true,
 						Example:     nil,
 						Schema: &SchemaObject{
-							ID:                 "",
-							PkgName:            "",
-							FieldName:          "",
-							DisabledFieldNames: nil,
-							Type:               "string",
-							Format:             "string",
-							Required:           nil,
-							Properties:         nil,
-							Description:        "Locale code",
-							Items:              nil,
-							Example:            nil,
-							Deprecated:         false,
-							Ref:                "",
+							Type:        "string",
+							Format:      "string",
+							Description: "Locale code",
 						},
-						Ref: "",
 					},
 				},
 			},
-			expectErr: errors.New(`parseParamComment can not parse param comment "locale   path   string   true"`),
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  errors.New(`parseParamComment can not parse param comment "locale   path   string   true"`),
 		},
 		"string in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `firstname   body   string   true   "First Name"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: &MediaTypeObject{
+						ContentTypeJson: {
 							Schema: SchemaObject{
 								Type: "string",
 							},
@@ -164,16 +83,17 @@ func TestParseParamComment(t *testing.T) {
 					Required: true,
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"[]string in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `address   body   []string   true   "Address"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: &MediaTypeObject{
+						ContentTypeJson: {
 							Schema: SchemaObject{
 								Type: "array",
 								Items: &SchemaObject{
@@ -185,32 +105,39 @@ func TestParseParamComment(t *testing.T) {
 					Required: true,
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"map[]string in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `address   body   map[]string   true   "Address"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: &MediaTypeObject{
+						ContentTypeJson: {
 							Schema: SchemaObject{
-								Type:       "object",
-								Properties: mapStringProp,
+								Type: "object",
+								Properties: ChainedOrderedMap{}.
+									New().
+									Set("address", &SchemaObject{
+										Type: "string",
+									}).
+									GetMap(),
 							},
 						},
 					},
 					Required: true,
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"timestamp in path": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `time   path   time.Time   true   "Timestamp"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				Parameters: []ParameterObject{
 					{
 						Name:        "time",
@@ -219,70 +146,60 @@ func TestParseParamComment(t *testing.T) {
 						Required:    true,
 						Example:     nil,
 						Schema: &SchemaObject{
-							ID:                 "",
-							PkgName:            "",
-							FieldName:          "",
-							DisabledFieldNames: nil,
-							Type:               "string",
-							Format:             "date-time",
-							Required:           nil,
-							Properties:         nil,
-							Description:        "",
-							Items:              nil,
-							Example:            nil,
-							Deprecated:         false,
-							Ref:                "",
+							Type:   "string",
+							Format: "date-time",
 						},
-						Ref: "",
 					},
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"file in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `image file ignored true "Image upload"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeForm: &MediaTypeObject{
+						ContentTypeForm: {
 							Schema: SchemaObject{
-								ID:                 "",
-								PkgName:            "",
-								FieldName:          "",
-								DisabledFieldNames: nil,
-								Type:               "object",
-								Format:             "",
-								Required:           nil,
-								Properties:         fileProp,
-								Description:        "",
-								Items:              nil,
-								Example:            nil,
-								Deprecated:         false,
-								ExternalDocs:       nil,
-								Ref:                "",
+								Type: "object",
+								Properties: ChainedOrderedMap{}.
+									New().
+									Set("image", &SchemaObject{
+										Type:        "string",
+										Format:      "binary",
+										Description: "Image upload",
+									}).
+									GetMap(),
 							},
 						},
 					},
-					Description: "",
-					Required:    true,
-					Ref:         "",
+					Required: true,
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"files in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `image files ignored true "Image upload"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeForm: &MediaTypeObject{
+						ContentTypeForm: {
 							Schema: SchemaObject{
-								Type:       "object",
-								Properties: filesProp,
+								Type: "object",
+								Properties: ChainedOrderedMap{}.
+									New().
+									Set("image", &SchemaObject{
+										Type:        "array",
+										Description: "Image upload",
+										Items:       &SchemaObject{Type: "string", Format: "binary"},
+									}).
+									GetMap(),
 							},
 						},
 					},
@@ -291,19 +208,27 @@ func TestParseParamComment(t *testing.T) {
 					Ref:         "",
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"form field with string in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `content form string false "Content field"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeForm: &MediaTypeObject{
+						ContentTypeForm: {
 							Schema: SchemaObject{
-								Type:       "object",
-								Properties: stringProp,
+								Type: "object",
+								Properties: ChainedOrderedMap{}.
+									New().
+									Set("content", &SchemaObject{
+										Type:        "string",
+										Format:      "string",
+										Description: "Content field",
+									}).
+									GetMap(),
 							},
 						},
 					},
@@ -312,24 +237,41 @@ func TestParseParamComment(t *testing.T) {
 					Ref:         "",
 				},
 			},
-			expectErr: nil,
+			wantSchema: make(map[string]*SchemaObject),
+			expectErr:  nil,
 		},
 		"struct in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `externaldocs body ExternalDocumentationObject false "External Documentation"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: &MediaTypeObject{
+						ContentTypeJson: {
 							Schema: SchemaObject{
 								Ref: "#/components/schemas/ExternalDocumentationObject",
 							},
 						},
 					},
-					Description: "",
-					Required:    false,
-					Ref:         "",
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"ExternalDocumentationObject": {
+					ID:                 "ExternalDocumentationObject",
+					PkgName:            "github.com/deanstalker/goas",
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: ChainedOrderedMap{}.
+						New().
+						Set("description", &SchemaObject{
+							FieldName: "Description",
+							Type:      "string",
+						}).
+						Set("url", &SchemaObject{
+							FieldName: "URL",
+							Type:      "string",
+						}).
+						GetMap(),
 				},
 			},
 			expectErr: nil,
@@ -338,10 +280,10 @@ func TestParseParamComment(t *testing.T) {
 			pkgName: "main.ExternalDocumentationObject",
 			pkgPath: "",
 			comment: `externaldocs body deanstalker.goas.ExternalDocumentationObject false "External Documentation"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: &MediaTypeObject{
+						ContentTypeJson: {
 							Schema: SchemaObject{
 								Ref: "#/components/schemas/ExternalDocumentationObject",
 							},
@@ -352,28 +294,76 @@ func TestParseParamComment(t *testing.T) {
 					Ref:         "",
 				},
 			},
+			wantSchema: map[string]*SchemaObject{
+				"ExternalDocumentationObject": {
+					ID:                 "ExternalDocumentationObject",
+					PkgName:            "github.com/deanstalker/goas",
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: ChainedOrderedMap{}.
+						New().
+						Set("description", &SchemaObject{
+							FieldName: "Description",
+							Type:      "string",
+						}).
+						Set("url", &SchemaObject{
+							FieldName: "URL",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+			},
 			expectErr: nil,
 		},
 		"array of structs in body": {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `externaldocs body []ExternalDocumentationObject false "External Documentation"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: &MediaTypeObject{
+						ContentTypeJson: {
 							Schema: SchemaObject{
 								Type: "array",
 								Items: &SchemaObject{
-									ID:                 "ExternalDocumentationObject",
-									PkgName:            "github.com/deanstalker/goas",
-									Type:               "object",
-									Properties:         extDocMap,
+									ID:      "ExternalDocumentationObject",
+									PkgName: "github.com/deanstalker/goas",
+									Type:    "object",
+									Properties: ChainedOrderedMap{}.
+										New().
+										Set("description", &SchemaObject{
+											FieldName: "Description",
+											Type:      "string",
+										}).
+										Set("url", &SchemaObject{
+											FieldName: "URL",
+											Type:      "string",
+										}).
+										GetMap(),
 									DisabledFieldNames: map[string]struct{}{},
 								},
 							},
 						},
 					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"ExternalDocumentationObject": {
+					ID:                 "ExternalDocumentationObject",
+					PkgName:            "github.com/deanstalker/goas",
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: ChainedOrderedMap{}.
+						New().
+						Set("description", &SchemaObject{
+							FieldName: "Description",
+							Type:      "string",
+						}).
+						Set("url", &SchemaObject{
+							FieldName: "URL",
+							Type:      "string",
+						}).
+						GetMap(),
 				},
 			},
 			expectErr: nil,
@@ -382,16 +372,127 @@ func TestParseParamComment(t *testing.T) {
 			pkgPath: dir,
 			pkgName: "main",
 			comment: `externaldocs body map[]ExternalDocumentationObject false "External Documentation"`,
-			want: &OperationObject{
+			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: &MediaTypeObject{
+						ContentTypeJson: {
 							Schema: SchemaObject{
-								Type:       "object",
-								Properties: extDocProp,
+								Type: "object",
+								Properties: ChainedOrderedMap{}.
+									New().
+									Set("externaldocs", &SchemaObject{
+										ID:      "ExternalDocumentationObject",
+										PkgName: "github.com/deanstalker/goas",
+										Type:    "object",
+										Properties: ChainedOrderedMap{}.
+											New().
+											Set("description", &SchemaObject{
+												FieldName: "Description",
+												Type:      "string",
+											}).
+											Set("url", &SchemaObject{
+												FieldName: "URL",
+												Type:      "string",
+											}).
+											GetMap(),
+										Ref:                "",
+										DisabledFieldNames: map[string]struct{}{},
+									}).
+									GetMap(),
 							},
 						},
 					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"ExternalDocumentationObject": {
+					ID:                 "ExternalDocumentationObject",
+					PkgName:            "github.com/deanstalker/goas",
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: ChainedOrderedMap{}.
+						New().
+						Set("description", &SchemaObject{
+							FieldName: "Description",
+							Type:      "string",
+						}).
+						Set("url", &SchemaObject{
+							FieldName: "URL",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"struct in alternate package - with struct tags": {
+			pkgPath: dir,
+			pkgName: "test",
+			comment: `post body test.PostRequestBody false "Post Request Body"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/PostRequestBody",
+							},
+						},
+					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"PostRequestBody": {
+					ID:                 "PostRequestBody",
+					PkgName:            "github.com/deanstalker/goas/test",
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: ChainedOrderedMap{}.
+						New().
+						Set("content", &SchemaObject{
+							FieldName: "Content",
+							Type:      "string",
+							MinLength: 1,
+							MaxLength: 255,
+						}).
+						Set("percent", &SchemaObject{
+							FieldName:  "Percent",
+							Type:       "integer",
+							MultipleOf: 10,
+						}).
+						Set("range", &SchemaObject{
+							FieldName:        "Range",
+							Type:             "integer",
+							Maximum:          255,
+							Minimum:          1,
+							ExclusiveMaximum: true,
+							ExclusiveMinimum: true,
+						}).
+						Set("generic", &SchemaObject{
+							FieldName: "Generic",
+							OneOf: []*ReferenceObject{
+								{
+									Ref: "#/components/schemas/ColourType",
+								},
+								{
+									Ref: "#/components/schemas/PatternType",
+								},
+							},
+						}).
+						GetMap(),
+					Title:       "Post Request Body",
+					Description: "A wrapper for incoming content",
+				},
+				"ColourType": {
+					ID:      "ColourType",
+					PkgName: "github.com/deanstalker/goas/test",
+					Type:    "object",
+					Title:   "Colours of the content",
+				},
+				"PatternType": {
+					ID:      "PatternType",
+					PkgName: "github.com/deanstalker/goas/test",
+					Type:    "object",
+					Title:   "Patterns of the content",
 				},
 			},
 			expectErr: nil,
@@ -400,7 +501,7 @@ func TestParseParamComment(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			p, err := partialBootstrap(t)
+			p, err := partialBootstrap()
 			if err != nil {
 				t.Errorf("%v", err)
 			}
@@ -411,7 +512,8 @@ func TestParseParamComment(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tc.want, op)
+			assert.Equal(t, tc.wantOp, op)
+			assert.Equal(t, tc.wantSchema, p.OpenAPI.Components.Schemas)
 		})
 	}
 }
@@ -752,7 +854,7 @@ func TestParseInfoSecurity(t *testing.T) {
 			},
 			wantSecurity: nil,
 			wantSecurityScheme: map[string]*SecuritySchemeObject{
-				"AuthorizationToken": &SecuritySchemeObject{
+				"AuthorizationToken": {
 					Type:             "apiKey",
 					Description:      "Input your auth token",
 					Scheme:           "",
@@ -761,7 +863,7 @@ func TestParseInfoSecurity(t *testing.T) {
 					OpenIdConnectUrl: "",
 					OAuthFlows:       nil,
 				},
-				"AuthorizationHeader": &SecuritySchemeObject{
+				"AuthorizationHeader": {
 					Type:             "http",
 					Description:      "Input your auth token",
 					Scheme:           "bearer",
@@ -780,7 +882,7 @@ func TestParseInfoSecurity(t *testing.T) {
 				"// @SecurityScheme BasicAuth http basic token Basic Auth",
 			},
 			wantSecurityScheme: map[string]*SecuritySchemeObject{
-				"BasicAuth": &SecuritySchemeObject{
+				"BasicAuth": {
 					Type:             "http",
 					Description:      "Basic Auth",
 					Scheme:           "basic",
@@ -800,7 +902,7 @@ func TestParseInfoSecurity(t *testing.T) {
 				"// @SecurityScheme OpenID openIdConnect /connect OpenId connect, relative to basePath",
 			},
 			wantSecurityScheme: map[string]*SecuritySchemeObject{
-				"OpenID": &SecuritySchemeObject{
+				"OpenID": {
 					Type:             "openIdConnect",
 					Description:      "OpenId connect, relative to basePath",
 					Scheme:           "",
@@ -822,7 +924,7 @@ func TestParseInfoSecurity(t *testing.T) {
 				"// @SecurityScope OAuth read Read only",
 			},
 			wantSecurityScheme: map[string]*SecuritySchemeObject{
-				"OAuth": &SecuritySchemeObject{
+				"OAuth": {
 					Type:             "oauth2",
 					Description:      "",
 					OpenIdConnectUrl: "",
@@ -856,7 +958,7 @@ func TestParseInfoSecurity(t *testing.T) {
 				"// @SecurityScope OAuth read Read only",
 			},
 			wantSecurityScheme: map[string]*SecuritySchemeObject{
-				"OAuth": &SecuritySchemeObject{
+				"OAuth": {
 					Type:             "oauth2",
 					Description:      "",
 					OpenIdConnectUrl: "",
@@ -889,7 +991,7 @@ func TestParseInfoSecurity(t *testing.T) {
 				"// @SecurityScope OAuth read Read only",
 			},
 			wantSecurityScheme: map[string]*SecuritySchemeObject{
-				"OAuth": &SecuritySchemeObject{
+				"OAuth": {
 					Type:             "oauth2",
 					Description:      "",
 					OpenIdConnectUrl: "",
@@ -922,7 +1024,7 @@ func TestParseInfoSecurity(t *testing.T) {
 				"// @SecurityScope OAuth read Read only",
 			},
 			wantSecurityScheme: map[string]*SecuritySchemeObject{
-				"OAuth": &SecuritySchemeObject{
+				"OAuth": {
 					Type:             "oauth2",
 					Description:      "",
 					OpenIdConnectUrl: "",
@@ -1195,11 +1297,11 @@ func TestParseOperation(t *testing.T) {
 				"/": &PathItemObject{
 					Get: &OperationObject{
 						Responses: map[string]*ResponseObject{
-							"200": &ResponseObject{
+							"200": {
 								Description: "Success",
 								Content:     make(map[string]*MediaTypeObject),
 							},
-							"400": &ResponseObject{
+							"400": {
 								Description: "Failed",
 								Content:     make(map[string]*MediaTypeObject),
 							},
@@ -1234,11 +1336,11 @@ func TestParseOperation(t *testing.T) {
 				"/{locale}": &PathItemObject{
 					Get: &OperationObject{
 						Responses: map[string]*ResponseObject{
-							"200": &ResponseObject{
+							"200": {
 								Description: "Success",
 								Content:     make(map[string]*MediaTypeObject),
 							},
-							"400": &ResponseObject{
+							"400": {
 								Description: "Failed",
 								Content:     make(map[string]*MediaTypeObject),
 							},
@@ -1284,11 +1386,11 @@ func TestParseOperation(t *testing.T) {
 				"/{locale}": &PathItemObject{
 					Post: &OperationObject{
 						Responses: map[string]*ResponseObject{
-							"201": &ResponseObject{
+							"201": {
 								Description: "Created",
 								Content:     make(map[string]*MediaTypeObject),
 							},
-							"400": &ResponseObject{
+							"400": {
 								Description: "Failed",
 								Content:     make(map[string]*MediaTypeObject),
 							},
@@ -1313,7 +1415,7 @@ func TestParseOperation(t *testing.T) {
 						},
 						RequestBody: &RequestBodyObject{
 							Content: map[string]*MediaTypeObject{
-								ContentTypeJson: &MediaTypeObject{
+								ContentTypeJson: {
 									Schema: SchemaObject{
 										Type: "string",
 									},
@@ -1347,11 +1449,11 @@ func TestParseOperation(t *testing.T) {
 				"/{locale}/{id}": &PathItemObject{
 					Patch: &OperationObject{
 						Responses: map[string]*ResponseObject{
-							"200": &ResponseObject{
+							"200": {
 								Description: "Success",
 								Content:     make(map[string]*MediaTypeObject),
 							},
-							"400": &ResponseObject{
+							"400": {
 								Description: "Failed",
 								Content:     make(map[string]*MediaTypeObject),
 							},
@@ -1387,7 +1489,7 @@ func TestParseOperation(t *testing.T) {
 						},
 						RequestBody: &RequestBodyObject{
 							Content: map[string]*MediaTypeObject{
-								ContentTypeJson: &MediaTypeObject{
+								ContentTypeJson: {
 									Schema: SchemaObject{
 										Type: "string",
 									},
@@ -1421,11 +1523,11 @@ func TestParseOperation(t *testing.T) {
 				"/{locale}/{id}": &PathItemObject{
 					Put: &OperationObject{
 						Responses: map[string]*ResponseObject{
-							"200": &ResponseObject{
+							"200": {
 								Description: "Success",
 								Content:     make(map[string]*MediaTypeObject),
 							},
-							"400": &ResponseObject{
+							"400": {
 								Description: "Failed",
 								Content:     make(map[string]*MediaTypeObject),
 							},
@@ -1461,7 +1563,7 @@ func TestParseOperation(t *testing.T) {
 						},
 						RequestBody: &RequestBodyObject{
 							Content: map[string]*MediaTypeObject{
-								ContentTypeJson: &MediaTypeObject{
+								ContentTypeJson: {
 									Schema: SchemaObject{
 										Type: "string",
 									},
@@ -1494,11 +1596,11 @@ func TestParseOperation(t *testing.T) {
 				"/{locale}/{id}": &PathItemObject{
 					Delete: &OperationObject{
 						Responses: map[string]*ResponseObject{
-							"200": &ResponseObject{
+							"200": {
 								Description: "Success",
 								Content:     make(map[string]*MediaTypeObject),
 							},
-							"400": &ResponseObject{
+							"400": {
 								Description: "Failed",
 								Content:     make(map[string]*MediaTypeObject),
 							},
@@ -1554,11 +1656,11 @@ func TestParseOperation(t *testing.T) {
 				"/{locale}/{id}": &PathItemObject{
 					Options: &OperationObject{
 						Responses: map[string]*ResponseObject{
-							"200": &ResponseObject{
+							"200": {
 								Description: "Success",
 								Content:     make(map[string]*MediaTypeObject),
 							},
-							"400": &ResponseObject{
+							"400": {
 								Description: "Failed",
 								Content:     make(map[string]*MediaTypeObject),
 							},
@@ -1696,7 +1798,7 @@ func TestParseOperation(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			p, err := partialBootstrap(t)
+			p, err := partialBootstrap()
 			if err != nil {
 				t.Fatalf("%v", err)
 			}
@@ -1732,7 +1834,7 @@ func commentSliceToCommentGroup(commentSlice []string) []*ast.CommentGroup {
 	return fileComments
 }
 
-func partialBootstrap(t *testing.T) (*parser, error) {
+func partialBootstrap() (*parser, error) {
 	p, err := NewParser(
 		"./",
 		"./main.go",

@@ -230,6 +230,30 @@ func (p *parser) parseFileComments() ([]*ast.CommentGroup, error) {
 	return fileTree.Comments, nil
 }
 
+func (p *parser) parseSchemaComments(comments []*ast.Comment, schemaObject *SchemaObject) error {
+	for i := range comments {
+		for _, comment := range strings.Split(comments[i].Text, "\n") {
+			comment = strings.TrimSpace(strings.Trim(comment, "/"))
+			attribute := strings.ToLower(strings.Split(comment, " ")[0])
+			if len(attribute) == 0 || attribute[0] != '@' {
+				continue
+			}
+			value := strings.TrimSpace(comment[len(attribute):])
+			if len(value) == 0 {
+				continue
+			}
+			switch attribute {
+			case AttributeTitle:
+				schemaObject.Title = value
+			case AttributeDescription:
+				schemaObject.Description = value
+			}
+		}
+	}
+
+	return nil
+}
+
 func (p *parser) parseInfo(comments []*ast.CommentGroup) error {
 	// Security Scopes are defined at a different level in the hierarchy as where they need to end up in the OpenAPI structure,
 	// so a temporary list is needed.
@@ -555,6 +579,7 @@ func (p *parser) parseTypeSpecs() error {
 						// find type declaration
 						for _, astSpec := range astGenDeclaration.Specs {
 							if typeSpec, ok := astSpec.(*ast.TypeSpec); ok {
+								typeSpec.Doc = astGenDeclaration.Doc // assign the gendec Doc block to the typeSpec docblock
 								p.TypeSpecs[pkgName][typeSpec.Name.String()] = typeSpec
 							}
 						}
@@ -1192,6 +1217,9 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 		schemaObject.PkgName = pkgName
 		schemaObject.ID = genSchemaObjectID(pkgName, typeName)
 		p.KnownIDSchema[schemaObject.ID] = &schemaObject
+		if err := p.parseSchemaComments(typeSpec.Doc.List, p.KnownIDSchema[schemaObject.ID]); err != nil {
+			log.Fatalf("unable to parse type comments for %s", typeName)
+		}
 	} else {
 		guessPkgName := strings.Join(typeNameParts[:len(typeNameParts)-1], "/")
 		guessPkgPath := ""
@@ -1233,10 +1261,16 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 			schemaObject.PkgName = guessPkgName
 			schemaObject.ID = genSchemaObjectID(guessPkgName, guessTypeName)
 			p.KnownIDSchema[schemaObject.ID] = &schemaObject
+			if err := p.parseSchemaComments(typeSpec.Doc.List, p.KnownIDSchema[schemaObject.ID]); err != nil {
+				log.Fatalf("unable to parse type comments for %s", typeName)
+			}
 		} else {
 			schemaObject.PkgName = guessPkgName
 			schemaObject.ID = genSchemaObjectID(guessPkgName, guessTypeName)
 			p.KnownIDSchema[schemaObject.ID] = &schemaObject
+			if err := p.parseSchemaComments(typeSpec.Doc.List, p.KnownIDSchema[schemaObject.ID]); err != nil {
+				log.Fatalf("unable to parse type comments for %s", typeName)
+			}
 		}
 		pkgPath, pkgName = guessPkgPath, guessPkgName
 	}
@@ -1459,6 +1493,121 @@ astFieldsLoop:
 
 			if desc := astFieldTag.Get("description"); desc != "" {
 				fieldSchema.Description = desc
+			}
+
+			if multipleOf := astFieldTag.Get("multipleOf"); multipleOf != "" {
+				switch fieldSchema.Type {
+				case "integer":
+					fieldSchema.MultipleOf, _ = strconv.Atoi(multipleOf)
+				case "float":
+				case "number":
+					fieldSchema.MultipleOf, _ = strconv.ParseFloat(multipleOf, 64)
+				default:
+					log.Fatalf(`unable to parse %s value: %v`, "multipleOf", multipleOf)
+				}
+			}
+
+			if min := astFieldTag.Get("minimum"); min != "" {
+				switch fieldSchema.Type {
+				case "integer":
+					fieldSchema.Minimum, _ = strconv.Atoi(min)
+				case "float":
+				case "number":
+					fieldSchema.Minimum, _ = strconv.ParseFloat(min, 64)
+				default:
+					log.Fatalf(`unable to parse %s value: %v`, "minimum", min)
+				}
+			}
+
+			if max := astFieldTag.Get("maximum"); max != "" {
+				switch fieldSchema.Type {
+				case "integer":
+					fieldSchema.Maximum, _ = strconv.Atoi(max)
+				case "float":
+				case "number":
+					fieldSchema.Maximum, _ = strconv.ParseFloat(max, 64)
+				default:
+					log.Fatalf(`unable to parse %s value: %v`, "maximum", max)
+				}
+			}
+
+			if exclusiveMin := astFieldTag.Get("exclusiveMinimum"); exclusiveMin != "" {
+				fieldSchema.ExclusiveMinimum, _ = strconv.ParseBool(exclusiveMin)
+			}
+
+			if exclusiveMax := astFieldTag.Get("exclusiveMaximum"); exclusiveMax != "" {
+				fieldSchema.ExclusiveMaximum, _ = strconv.ParseBool(exclusiveMax)
+			}
+
+			if minLength := astFieldTag.Get("minLength"); minLength != "" {
+				fieldSchema.MinLength, _ = strconv.Atoi(minLength)
+			}
+
+			if maxLength := astFieldTag.Get("maxLength"); maxLength != "" {
+				fieldSchema.MaxLength, _ = strconv.Atoi(maxLength)
+			}
+
+			if pattern := astFieldTag.Get("pattern"); pattern != "" {
+				fieldSchema.Pattern = pattern
+			}
+
+			if fieldSchema.Type == "array" {
+				if minItems := astFieldTag.Get("maxItems"); minItems != "" {
+					fieldSchema.MinItems, _ = strconv.Atoi(minItems)
+				}
+
+				if maxItems := astFieldTag.Get("maxItems"); maxItems != "" {
+					fieldSchema.MaxItems, _ = strconv.Atoi(maxItems)
+				}
+
+				if uniqueItems := astFieldTag.Get("uniqueItems"); uniqueItems != "" {
+					fieldSchema.UniqueItems, _ = strconv.ParseBool(uniqueItems)
+				}
+			}
+
+			if fieldSchema.Type == "object" {
+				if minProperties := astFieldTag.Get("minProperties"); minProperties != "" {
+					fieldSchema.MinProperties, _ = strconv.Atoi(minProperties)
+				}
+
+				if maxProperties := astFieldTag.Get("maxProperties"); maxProperties != "" {
+					fieldSchema.MaxProperties, _ = strconv.Atoi(maxProperties)
+				}
+			}
+
+			if enum := astFieldTag.Get("enum"); enum != "" {
+				enums := strings.Split(strings.TrimSpace(enum), ",")
+				fieldSchema.Enum = enums
+			}
+
+			if allOf := astFieldTag.Get("allOf"); allOf != "" {
+				typeNames := strings.Split(strings.TrimSpace(allOf), ",")
+				for _, typeName := range typeNames {
+					schemaObject, _ := p.parseSchemaObject("", "", "", typeName)
+					fieldSchema.AllOf = append(fieldSchema.AllOf, &ReferenceObject{
+						Ref: addSchemaRefLinkPrefix(schemaObject.ID),
+					})
+				}
+			}
+
+			if oneOf := astFieldTag.Get("oneOf"); oneOf != "" {
+				typeNames := strings.Split(strings.TrimSpace(oneOf), ",")
+				for _, typeName := range typeNames {
+					schemaObject, _ := p.parseSchemaObject("", "", "", typeName)
+					fieldSchema.OneOf = append(fieldSchema.OneOf, &ReferenceObject{
+						Ref: addSchemaRefLinkPrefix(schemaObject.ID),
+					})
+				}
+			}
+
+			if anyOf := astFieldTag.Get("anyOf"); anyOf != "" {
+				typeNames := strings.Split(strings.TrimSpace(anyOf), ",")
+				for _, typeName := range typeNames {
+					schemaObject, _ := p.parseSchemaObject("", "", "", typeName)
+					fieldSchema.AnyOf = append(fieldSchema.AnyOf, &ReferenceObject{
+						Ref: addSchemaRefLinkPrefix(schemaObject.ID),
+					})
+				}
 			}
 		}
 

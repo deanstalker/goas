@@ -1,6 +1,8 @@
 package main
 
-import "github.com/iancoleman/orderedmap"
+import (
+	"github.com/iancoleman/orderedmap"
+)
 
 const (
 	OpenAPIVersion = "3.0.0"
@@ -135,7 +137,7 @@ type ParameterObject struct {
 	Example     interface{}   `json:"example,omitempty"`
 	Schema      *SchemaObject `json:"schema,omitempty"`
 
-	// Ref is used when ParameterOjbect is as a ReferenceObject
+	// Ref is used when ParameterObject is a ReferenceObject
 	Ref string `json:"$ref,omitempty"`
 
 	Deprecated      bool `json:"deprecated,omitempty"`
@@ -147,9 +149,9 @@ type ParameterObject struct {
 	// Content
 }
 
-//type ReferenceObject struct {
-//	Ref string `json:"$ref,omitempty"`
-//}
+type ReferenceObject struct {
+	Ref string `json:"$ref,omitempty"`
+}
 
 type RequestBodyObject struct {
 	Content map[string]*MediaTypeObject `json:"content"` // Required
@@ -185,35 +187,35 @@ type SchemaObject struct {
 	Deprecated   bool                         `json:"deprecated,omitempty"`
 	ExternalDocs *ExternalDocumentationObject `json:"externalDocs,omitempty"`
 
-	// Ref is used when SchemaObject is as a ReferenceObject
+	Title string `json:"title,omitempty"`
+
+	MultipleOf           interface{}        `json:"multipleOf,omitempty"`
+	Minimum              interface{}        `json:"minimum,omitempty"`
+	Maximum              interface{}        `json:"maximum,omitempty"`
+	ExclusiveMinimum     bool               `json:"exclusiveMinimum,omitempty"`
+	ExclusiveMaximum     bool               `json:"exclusiveMaximum,omitempty"`
+	MaxLength            interface{}        `json:"maxLength,omitempty"`
+	MinLength            interface{}        `json:"minLength,omitempty"`
+	Pattern              string             `json:"pattern,omitempty"`
+	MaxItems             int                `json:"maxItems,omitempty"`
+	MinItems             int                `json:"minItems,omitempty"`
+	UniqueItems          bool               `json:"uniqueItems,omitempty"`
+	MaxProperties        int                `json:"maxProperties,omitempty"`
+	MinProperties        int                `json:"minProperties,omitempty"`
+	Enum                 []string           `json:"enum,omitempty"`
+	AllOf                []*ReferenceObject `json:"allOf,omitempty"`
+	OneOf                []*ReferenceObject `json:"oneOf,omitempty"`
+	AnyOf                []*ReferenceObject `json:"anyOf,omitempty"`
+	Not                  *SchemaObject      `json:"not,omitempty"`
+	AdditionalProperties *SchemaObject      `json:"additionalProperties,omitempty"`
+	Default              interface{}        `json:"default,omitempty"`
+	Nullable             bool               `json:"nullable,omitempty"`
+	ReadOnly             bool               `json:"readOnly,omitempty"`
+	WriteOnly            bool               `json:"writeOnly"`
+
+	// Ref is used when SchemaObject is used as a ReferenceObject
 	Ref string `json:"$ref,omitempty"`
 
-	// The following would usually be applied as annotations to the struct comments.
-	// Title
-	// MultipleOf
-	// Maximum
-	// ExclusiveMaximum
-	// Minimum
-	// ExclusiveMinimum
-	// MaxLength
-	// MinLength
-	// Pattern
-	// MaxItems
-	// MinItems
-	// UniqueItems
-	// MaxProperties
-	// MinProperties
-	// Enum
-	// AllOf
-	// OneOf
-	// AnyOf
-	// Not
-	// AdditionalProperties
-	// Description
-	// Default
-	// Nullable
-	// ReadOnly
-	// WriteOnly
 	// XML
 }
 
@@ -243,6 +245,7 @@ type ComponentsObject struct {
 	Schemas         map[string]*SchemaObject         `json:"schemas,omitempty"`
 	SecuritySchemes map[string]*SecuritySchemeObject `json:"securitySchemes,omitempty"`
 
+	// The following are not populated for complexity reasons ...
 	// Responses
 	// Parameters
 	// Examples
