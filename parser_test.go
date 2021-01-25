@@ -2,17 +2,20 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"os"
 	"sort"
 	"testing"
+
+	"github.com/deanstalker/goas/internal/util"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestParseParamComment(t *testing.T) {
 	dir, _ := os.Getwd()
-
+	pkgName, _ := util.GetModulePath("")
 	tests := map[string]struct {
 		pkgPath    string
 		pkgName    string
@@ -118,7 +121,7 @@ func TestParseParamComment(t *testing.T) {
 						ContentTypeJson: {
 							Schema: SchemaObject{
 								Type: "object",
-								Properties: ChainedOrderedMap{}.
+								Properties: util.ChainedOrderedMap{}.
 									New().
 									Set("address", &SchemaObject{
 										Type: "string",
@@ -165,7 +168,7 @@ func TestParseParamComment(t *testing.T) {
 						ContentTypeForm: {
 							Schema: SchemaObject{
 								Type: "object",
-								Properties: ChainedOrderedMap{}.
+								Properties: util.ChainedOrderedMap{}.
 									New().
 									Set("image", &SchemaObject{
 										Type:        "string",
@@ -192,7 +195,7 @@ func TestParseParamComment(t *testing.T) {
 						ContentTypeForm: {
 							Schema: SchemaObject{
 								Type: "object",
-								Properties: ChainedOrderedMap{}.
+								Properties: util.ChainedOrderedMap{}.
 									New().
 									Set("image", &SchemaObject{
 										Type:        "array",
@@ -221,7 +224,7 @@ func TestParseParamComment(t *testing.T) {
 						ContentTypeForm: {
 							Schema: SchemaObject{
 								Type: "object",
-								Properties: ChainedOrderedMap{}.
+								Properties: util.ChainedOrderedMap{}.
 									New().
 									Set("content", &SchemaObject{
 										Type:        "string",
@@ -258,49 +261,10 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*SchemaObject{
 				"ExternalDocumentationObject": {
 					ID:                 "ExternalDocumentationObject",
-					PkgName:            "github.com/deanstalker/goas",
+					PkgName:            pkgName,
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
-					Properties: ChainedOrderedMap{}.
-						New().
-						Set("description", &SchemaObject{
-							FieldName: "Description",
-							Type:      "string",
-						}).
-						Set("url", &SchemaObject{
-							FieldName: "URL",
-							Type:      "string",
-						}).
-						GetMap(),
-				},
-			},
-			expectErr: nil,
-		},
-		"struct path in body": {
-			pkgName: "main.ExternalDocumentationObject",
-			pkgPath: "",
-			comment: `externaldocs body deanstalker.goas.ExternalDocumentationObject false "External Documentation"`,
-			wantOp: &OperationObject{
-				RequestBody: &RequestBodyObject{
-					Content: map[string]*MediaTypeObject{
-						ContentTypeJson: {
-							Schema: SchemaObject{
-								Ref: "#/components/schemas/ExternalDocumentationObject",
-							},
-						},
-					},
-					Description: "",
-					Required:    false,
-					Ref:         "",
-				},
-			},
-			wantSchema: map[string]*SchemaObject{
-				"ExternalDocumentationObject": {
-					ID:                 "ExternalDocumentationObject",
-					PkgName:            "github.com/deanstalker/goas",
-					DisabledFieldNames: make(map[string]struct{}),
-					Type:               "object",
-					Properties: ChainedOrderedMap{}.
+					Properties: util.ChainedOrderedMap{}.
 						New().
 						Set("description", &SchemaObject{
 							FieldName: "Description",
@@ -326,21 +290,7 @@ func TestParseParamComment(t *testing.T) {
 							Schema: SchemaObject{
 								Type: "array",
 								Items: &SchemaObject{
-									ID:      "ExternalDocumentationObject",
-									PkgName: "github.com/deanstalker/goas",
-									Type:    "object",
-									Properties: ChainedOrderedMap{}.
-										New().
-										Set("description", &SchemaObject{
-											FieldName: "Description",
-											Type:      "string",
-										}).
-										Set("url", &SchemaObject{
-											FieldName: "URL",
-											Type:      "string",
-										}).
-										GetMap(),
-									DisabledFieldNames: map[string]struct{}{},
+									Ref: "#/components/schemas/ExternalDocumentationObject",
 								},
 							},
 						},
@@ -350,10 +300,10 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*SchemaObject{
 				"ExternalDocumentationObject": {
 					ID:                 "ExternalDocumentationObject",
-					PkgName:            "github.com/deanstalker/goas",
+					PkgName:            pkgName,
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
-					Properties: ChainedOrderedMap{}.
+					Properties: util.ChainedOrderedMap{}.
 						New().
 						Set("description", &SchemaObject{
 							FieldName: "Description",
@@ -378,13 +328,13 @@ func TestParseParamComment(t *testing.T) {
 						ContentTypeJson: {
 							Schema: SchemaObject{
 								Type: "object",
-								Properties: ChainedOrderedMap{}.
+								Properties: util.ChainedOrderedMap{}.
 									New().
 									Set("externaldocs", &SchemaObject{
 										ID:      "ExternalDocumentationObject",
-										PkgName: "github.com/deanstalker/goas",
+										PkgName: pkgName,
 										Type:    "object",
-										Properties: ChainedOrderedMap{}.
+										Properties: util.ChainedOrderedMap{}.
 											New().
 											Set("description", &SchemaObject{
 												FieldName: "Description",
@@ -407,10 +357,10 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*SchemaObject{
 				"ExternalDocumentationObject": {
 					ID:                 "ExternalDocumentationObject",
-					PkgName:            "github.com/deanstalker/goas",
+					PkgName:            pkgName,
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
-					Properties: ChainedOrderedMap{}.
+					Properties: util.ChainedOrderedMap{}.
 						New().
 						Set("description", &SchemaObject{
 							FieldName: "Description",
@@ -425,74 +375,568 @@ func TestParseParamComment(t *testing.T) {
 			},
 			expectErr: nil,
 		},
-		"struct in alternate package - with struct tags": {
+		"struct in alternate package - test oneOf a kind": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.PostRequestBody false "Post Request Body"`,
+			comment: `post body test.FruitOneOfAKind false "Fruit - Test oneOf a Kind"`,
 			wantOp: &OperationObject{
 				RequestBody: &RequestBodyObject{
 					Content: map[string]*MediaTypeObject{
 						ContentTypeJson: {
 							Schema: SchemaObject{
-								Ref: "#/components/schemas/PostRequestBody",
+								Ref: "#/components/schemas/FruitOneOfAKind",
 							},
 						},
 					},
 				},
 			},
 			wantSchema: map[string]*SchemaObject{
-				"PostRequestBody": {
-					ID:                 "PostRequestBody",
-					PkgName:            "github.com/deanstalker/goas/test",
+				"Banana": {
+					ID:                 "Banana",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
-					Properties: ChainedOrderedMap{}.
+					Properties: util.ChainedOrderedMap{}.
 						New().
-						Set("content", &SchemaObject{
-							FieldName: "Content",
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
 							Type:      "string",
-							MinLength: 1,
-							MaxLength: 255,
 						}).
-						Set("percent", &SchemaObject{
-							FieldName:  "Percent",
-							Type:       "integer",
-							MultipleOf: 10,
+						GetMap(),
+				},
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
 						}).
-						Set("range", &SchemaObject{
-							FieldName:        "Range",
-							Type:             "integer",
-							Maximum:          255,
-							Minimum:          1,
-							ExclusiveMaximum: true,
-							ExclusiveMinimum: true,
-						}).
-						Set("generic", &SchemaObject{
-							FieldName: "Generic",
+						GetMap(),
+				},
+				"FruitOneOfAKind": {
+					ID:                 "FruitOneOfAKind",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Title:              "One of a kind Fruit",
+					Description:        "only one kind of fruit at a time",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
 							OneOf: []*ReferenceObject{
 								{
-									Ref: "#/components/schemas/ColourType",
+									Ref: "#/components/schemas/Citrus",
 								},
 								{
-									Ref: "#/components/schemas/PatternType",
+									Ref: "#/components/schemas/Banana",
 								},
 							},
 						}).
 						GetMap(),
-					Title:       "Post Request Body",
-					Description: "A wrapper for incoming content",
 				},
-				"ColourType": {
-					ID:      "ColourType",
-					PkgName: "github.com/deanstalker/goas/test",
-					Type:    "object",
-					Title:   "Colours of the content",
+			},
+			expectErr: nil,
+		},
+		//"struct in alternate package - test oneOf a kind - invalid type: {}"
+		"struct in alternate package - test oneOf a kind with discriminator": {
+			pkgPath: dir,
+			pkgName: "test",
+			comment: `post body test.FruitOneOfAKindDisc false "Fruit - Test oneOf a Kind"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/FruitOneOfAKindDisc",
+							},
+						},
+					},
 				},
-				"PatternType": {
-					ID:      "PatternType",
-					PkgName: "github.com/deanstalker/goas/test",
-					Type:    "object",
-					Title:   "Patterns of the content",
+			},
+			wantSchema: map[string]*SchemaObject{
+				"Banana": {
+					ID:                 "Banana",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"FruitOneOfAKindDisc": {
+					ID:                 "FruitOneOfAKindDisc",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Title:              "One of a kind Fruit with Discriminator",
+					Description:        "only one kind of fruit at a time",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							OneOf: []*ReferenceObject{
+								{
+									Ref: "#/components/schemas/Citrus",
+								},
+								{
+									Ref: "#/components/schemas/Banana",
+								},
+							},
+							Discriminator: &Discriminator{
+								PropertyName: "kind",
+							},
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"struct in alternate package - test oneOf a kind with invalid discriminator": {
+			pkgPath: dir,
+			pkgName: "test",
+			comment: `post body test.FruitOneOfAKindInvalidDisc false "Fruit - Test oneOf a Kind"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/FruitOneOfAKindInvalidDisc",
+							},
+						},
+					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"Banana": {
+					ID:                 "Banana",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"FruitOneOfAKindInvalidDisc": {
+					ID:                 "FruitOneOfAKindInvalidDisc",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Title:              "One of a kind Fruit with Discriminator",
+					Description:        "only one kind of fruit at a time",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							OneOf: []*ReferenceObject{
+								{
+									Ref: "#/components/schemas/Citrus",
+								},
+								{
+									Ref: "#/components/schemas/Banana",
+								},
+							},
+							Discriminator: &Discriminator{
+								PropertyName: "kind",
+							},
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: fmt.Errorf("unable to find discriminator field: kindle, in schema: Citrus"),
+		},
+		"struct in alternate package - test allOf a kind": {
+			pkgPath: dir,
+			pkgName: "test",
+			comment: `post body test.FruitAllOfAKind false "Fruit - Test allOf a Kind"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/FruitAllOfAKind",
+							},
+						},
+					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"Banana": {
+					ID:                 "Banana",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"FruitAllOfAKind": {
+					ID:                 "FruitAllOfAKind",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Title:              "All of a kind",
+					Description:        "only all of a kind of fruit at a time",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							AllOf: []*ReferenceObject{
+								{
+									Ref: "#/components/schemas/Citrus",
+								},
+								{
+									Ref: "#/components/schemas/Banana",
+								},
+							},
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		//"struct in alternate package - test allOf a kind - invalid type: {}"
+		"struct in alternate package - test anyOf a kind": {
+			pkgPath: dir,
+			pkgName: "test",
+			comment: `post body test.FruitAnyOfAKind false "Fruit - Test anyOf a Kind"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/FruitAnyOfAKind",
+							},
+						},
+					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"Banana": {
+					ID:                 "Banana",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"FruitAnyOfAKind": {
+					ID:                 "FruitAnyOfAKind",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Title:              "Any of a kind",
+					Description:        "any kind of fruit",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							AnyOf: []*ReferenceObject{
+								{
+									Ref: "#/components/schemas/Citrus",
+								},
+								{
+									Ref: "#/components/schemas/Banana",
+								},
+							},
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		//"struct in alternate package - test anyOf a kind - invalid type: {}"
+		"test enum - string and numeric": {
+			pkgPath: dir,
+			pkgName: "test",
+			comment: `post body test.EnumProperties false "Enum Properties"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/EnumProperties",
+							},
+						},
+					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"EnumProperties": {
+					ID:                 "EnumProperties",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Title:              "Enumerator Properties",
+					Description:        "test to ensure enums are handled",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("status", &SchemaObject{
+							FieldName: "Status",
+							Type:      "string",
+							Enum: []string{
+								"active",
+								"pending",
+								"disabled",
+							},
+						}).
+						Set("error_code", &SchemaObject{
+							FieldName: "ErrorCode",
+							Type:      "integer",
+							Enum: []string{
+								"400",
+								"404",
+								"500",
+							},
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"test object - limited properties": {
+			pkgPath: dir,
+			pkgName: "test",
+			comment: `post body test.LimitedObjectProperties false "Limited Object Properties"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/LimitedObjectProperties",
+							},
+						},
+					},
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+				"LimitedObjectProperties": {
+					ID:                 "LimitedObjectProperties",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("properties", &SchemaObject{
+							FieldName:          "Properties",
+							DisabledFieldNames: nil,
+							Type:               "object",
+							Properties: util.ChainedOrderedMap{}.
+								New().
+								Set("key", &SchemaObject{
+									ID:                 "Citrus",
+									PkgName:            fmt.Sprintf("%s/test", pkgName),
+									Type:               "object",
+									DisabledFieldNames: make(map[string]struct{}),
+									Properties: util.ChainedOrderedMap{}.
+										New().
+										Set("kind", &SchemaObject{
+											FieldName: "Kind",
+											Type:      "string",
+										}).
+										GetMap(),
+								}).
+								GetMap(),
+							MinProperties: 2,
+							MaxProperties: 5,
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"test array - min, max and unique": {
+			pkgPath: "test",
+			pkgName: fmt.Sprintf("%s/test", pkgName),
+			comment: `post body test.FruitBasketArray true "Fruit Basket"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/FruitBasketArray",
+							},
+						},
+					},
+					Required: true,
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"Fruit": {
+					ID:                 "Fruit",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("color", &SchemaObject{
+							FieldName: "Color",
+							Type:      "string",
+						}).
+						Set("has_seed", &SchemaObject{
+							FieldName: "HasSeed",
+							Type:      "boolean",
+						}).
+						GetMap(),
+				},
+				"FruitBasketArray": {
+					ID:                 "FruitBasketArray",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					DisabledFieldNames: make(map[string]struct{}),
+					Type:               "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("fruit", &SchemaObject{
+							FieldName: "Fruit",
+							Type:      "array",
+							Items: &SchemaObject{
+								Ref: "#/components/schemas/Fruit",
+							},
+							MinItems:    5,
+							MaxItems:    10,
+							UniqueItems: true,
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"test scalar": {
+			pkgPath: "test",
+			pkgName: fmt.Sprintf("%s/test", pkgName),
+			comment: `post body test.Release true "Release"`,
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/Release",
+							},
+						},
+					},
+					Required: true,
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"Release": {
+					ID:                 "Release",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					Type:               "object",
+					DisabledFieldNames: make(map[string]struct{}),
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("range_int", &SchemaObject{
+							FieldName: "RangeInt",
+							Type:      "integer",
+							Minimum:   1,
+							Maximum:   100,
+						}).
+						Set("range_float", &SchemaObject{
+							FieldName: "RangeFloat",
+							Type:      "number",
+							Minimum:   0.01,
+							Maximum:   0.5,
+						}).
+						Set("description", &SchemaObject{
+							FieldName:        "Description",
+							Type:             "string",
+							ExclusiveMinimum: true,
+							ExclusiveMaximum: true,
+							MaxLength:        255,
+							MinLength:        30,
+						}).
+						Set("version", &SchemaObject{
+							FieldName: "Version",
+							Type:      "string",
+							Pattern:   `^(?P<major>0|[1-9][0-9]*)\.(?P<minor>0|[1-9][0-9]*)\.(?P<patch>0|[1-9][0-9]*)(?:-(?P<prerelease>(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`,
+						}).
+						GetMap(),
 				},
 			},
 			expectErr: nil,

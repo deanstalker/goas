@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 	"strings"
-
-	"github.com/iancoleman/orderedmap"
 )
 
 func IsMainFile(path string) bool {
@@ -136,24 +134,6 @@ var goTypesOASFormats = map[string]string{
 	"float32": "float",
 	"float64": "double",
 	"string":  "string",
-}
-
-type ChainedOrderedMap struct {
-	m *orderedmap.OrderedMap
-}
-
-func (c ChainedOrderedMap) New() ChainedOrderedMap {
-	c.m = orderedmap.New()
-	return c
-}
-
-func (c ChainedOrderedMap) Set(key string, value interface{}) ChainedOrderedMap {
-	c.m.Set(key, value)
-	return c
-}
-
-func (c ChainedOrderedMap) GetMap() *orderedmap.OrderedMap {
-	return c.m
 }
 
 // var typeDefTranslations = map[string]string{}

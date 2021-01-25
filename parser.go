@@ -1158,14 +1158,14 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 	if strings.HasPrefix(typeName, "[]") {
 		schemaObject.Type = "array"
 		itemTypeName := typeName[2:]
+		schemaObject.Items, err = p.parseSchemaObject(pkgPath, pkgName, fieldName, itemTypeName)
+		if err != nil {
+			return nil, err
+		}
 		schema, ok := p.KnownIDSchema[genSchemaObjectID(pkgName, itemTypeName)]
 		if ok {
 			schemaObject.Items = &SchemaObject{Ref: addSchemaRefLinkPrefix(schema.ID)}
 			return &schemaObject, nil
-		}
-		schemaObject.Items, err = p.parseSchemaObject(pkgPath, pkgName, fieldName, itemTypeName)
-		if err != nil {
-			return nil, err
 		}
 		return &schemaObject, nil
 	} else if strings.HasPrefix(typeName, "map[]") {
@@ -1217,8 +1217,10 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 		schemaObject.PkgName = pkgName
 		schemaObject.ID = genSchemaObjectID(pkgName, typeName)
 		p.KnownIDSchema[schemaObject.ID] = &schemaObject
-		if err := p.parseSchemaComments(typeSpec.Doc.List, p.KnownIDSchema[schemaObject.ID]); err != nil {
-			log.Fatalf("unable to parse type comments for %s", typeName)
+		if typeSpec.Doc != nil {
+			if err := p.parseSchemaComments(typeSpec.Doc.List, p.KnownIDSchema[schemaObject.ID]); err != nil {
+				log.Fatalf("unable to parse type comments for %s", typeName)
+			}
 		}
 	} else {
 		guessPkgName := strings.Join(typeNameParts[:len(typeNameParts)-1], "/")
@@ -1268,8 +1270,10 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 			schemaObject.PkgName = guessPkgName
 			schemaObject.ID = genSchemaObjectID(guessPkgName, guessTypeName)
 			p.KnownIDSchema[schemaObject.ID] = &schemaObject
-			if err := p.parseSchemaComments(typeSpec.Doc.List, p.KnownIDSchema[schemaObject.ID]); err != nil {
-				log.Fatalf("unable to parse type comments for %s", typeName)
+			if typeSpec.Doc != nil {
+				if err := p.parseSchemaComments(typeSpec.Doc.List, p.KnownIDSchema[schemaObject.ID]); err != nil {
+					log.Fatalf("unable to parse type comments for %s", typeName)
+				}
 			}
 		}
 		pkgPath, pkgName = guessPkgPath, guessPkgName
@@ -1280,7 +1284,9 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 	} else if astStructType, ok := typeSpec.Type.(*ast.StructType); ok {
 		schemaObject.Type = "object"
 		if astStructType.Fields != nil {
-			p.parseSchemaPropertiesFromStructFields(pkgPath, pkgName, &schemaObject, astStructType.Fields.List)
+			if err := p.parseSchemaPropertiesFromStructFields(pkgPath, pkgName, &schemaObject, astStructType.Fields.List); err != nil {
+				return nil, err
+			}
 		}
 	} else if astArrayType, ok := typeSpec.Type.(*ast.ArrayType); ok {
 		schemaObject.Type = "array"
@@ -1341,9 +1347,11 @@ func (p *parser) getTypeSpec(pkgPath, pkgName, typeName string) (*ast.TypeSpec, 
 	return astTypeSpec, true
 }
 
-func (p *parser) parseSchemaPropertiesFromStructFields(pkgPath, pkgName string, structSchema *SchemaObject, astFields []*ast.Field) {
+func (p *parser) parseSchemaPropertiesFromStructFields(pkgPath, pkgName string, structSchema *SchemaObject, astFields []*ast.Field) error {
+	// TODO this method is too complex
+	// TODO errors are not bubbled up
 	if astFields == nil {
-		return
+		return nil
 	}
 	var err error
 	structSchema.Properties = orderedmap.New()
@@ -1361,44 +1369,39 @@ astFieldsLoop:
 		if strings.HasPrefix(typeAsString, "[]") {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				p.debug(err)
-				return
+				return fmt.Errorf("could not parse type %s as array: %v", typeAsString, err)
 			}
 		} else if strings.HasPrefix(typeAsString, "map[]") {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				p.debug(err)
-				return
+				return fmt.Errorf("could not parse type %s as map: %v", typeAsString, err)
 			}
 		} else if typeAsString == "time.Time" {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				p.debug(err)
-				return
+				return fmt.Errorf("could not parse type %s as time.Time: %v", typeAsString, err)
 			}
 		} else if strings.HasPrefix(typeAsString, "interface{}") {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				p.debug(err)
-				return
+				return fmt.Errorf("could not parse type %s as interface{}: %v", typeAsString, err)
 			}
 		} else if !isBasicGoType(typeAsString) {
 			fieldSchemaSchemeObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 			if err != nil {
-				p.debug("parseSchemaPropertiesFromStructFields err:", err)
-			} else {
-				fieldSchema.ID = fieldSchemaSchemeObjectID
-				schema, ok := p.KnownIDSchema[fieldSchemaSchemeObjectID]
-				if ok {
-					fieldSchema.Type = schema.Type
-					if schema.Items != nil {
-						fieldSchema.Items = schema.Items
-					}
+				return fmt.Errorf("could not register type %s: %v", typeAsString, err)
+			}
+			fieldSchema.ID = fieldSchemaSchemeObjectID
+			schema, ok := p.KnownIDSchema[fieldSchemaSchemeObjectID]
+			if ok {
+				fieldSchema.Type = schema.Type
+				if schema.Items != nil {
+					fieldSchema.Items = schema.Items
 				}
-				fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeObjectID)
-				if fieldSchema.Type != "" {
-					fieldSchema.Type = ""
-				}
+			}
+			fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeObjectID)
+			if fieldSchema.Type != "" {
+				fieldSchema.Type = ""
 			}
 		} else if isGoTypeOASType(typeAsString) {
 			fieldSchema.Type = goTypesOASTypes[typeAsString]
@@ -1503,7 +1506,7 @@ astFieldsLoop:
 				case "number":
 					fieldSchema.MultipleOf, _ = strconv.ParseFloat(multipleOf, 64)
 				default:
-					log.Fatalf(`unable to parse %s value: %v`, "multipleOf", multipleOf)
+					return fmt.Errorf(`unable to parse %s value: %v`, "multipleOf", multipleOf)
 				}
 			}
 
@@ -1515,7 +1518,7 @@ astFieldsLoop:
 				case "number":
 					fieldSchema.Minimum, _ = strconv.ParseFloat(min, 64)
 				default:
-					log.Fatalf(`unable to parse %s value: %v`, "minimum", min)
+					return fmt.Errorf("unable to parse %s value: %v", "minimum", min)
 				}
 			}
 
@@ -1527,7 +1530,7 @@ astFieldsLoop:
 				case "number":
 					fieldSchema.Maximum, _ = strconv.ParseFloat(max, 64)
 				default:
-					log.Fatalf(`unable to parse %s value: %v`, "maximum", max)
+					return fmt.Errorf("unable to parse %s value: %v", "maximum", max)
 				}
 			}
 
@@ -1552,7 +1555,7 @@ astFieldsLoop:
 			}
 
 			if fieldSchema.Type == "array" {
-				if minItems := astFieldTag.Get("maxItems"); minItems != "" {
+				if minItems := astFieldTag.Get("minItems"); minItems != "" {
 					fieldSchema.MinItems, _ = strconv.Atoi(minItems)
 				}
 
@@ -1583,7 +1586,10 @@ astFieldsLoop:
 			if allOf := astFieldTag.Get("allOf"); allOf != "" {
 				typeNames := strings.Split(strings.TrimSpace(allOf), ",")
 				for _, typeName := range typeNames {
-					schemaObject, _ := p.parseSchemaObject("", "", "", typeName)
+					schemaObject, err := p.parseSchemaObject("", "", "", typeName)
+					if err != nil {
+						return fmt.Errorf("unable to find object with name %s: %v", typeName, err)
+					}
 					fieldSchema.AllOf = append(fieldSchema.AllOf, &ReferenceObject{
 						Ref: addSchemaRefLinkPrefix(schemaObject.ID),
 					})
@@ -1591,9 +1597,24 @@ astFieldsLoop:
 			}
 
 			if oneOf := astFieldTag.Get("oneOf"); oneOf != "" {
+				// get discriminator if available
+				if discriminator := astFieldTag.Get("discriminator"); discriminator != "" {
+					fieldSchema.Discriminator = &Discriminator{PropertyName: discriminator}
+				}
+
 				typeNames := strings.Split(strings.TrimSpace(oneOf), ",")
 				for _, typeName := range typeNames {
-					schemaObject, _ := p.parseSchemaObject("", "", "", typeName)
+					schemaObject, err := p.parseSchemaObject("", "", "", typeName)
+					if err != nil {
+						return fmt.Errorf("unable to find object with name %s: %v", typeName, err)
+					}
+
+					if fieldSchema.Discriminator != nil {
+						if _, ok := schemaObject.Properties.Get(fieldSchema.Discriminator.PropertyName); !ok {
+							return fmt.Errorf("unable to find discriminator field: %s, in schema: %s", fieldSchema.Discriminator.PropertyName, schemaObject.ID)
+						}
+					}
+
 					fieldSchema.OneOf = append(fieldSchema.OneOf, &ReferenceObject{
 						Ref: addSchemaRefLinkPrefix(schemaObject.ID),
 					})
@@ -1603,7 +1624,10 @@ astFieldsLoop:
 			if anyOf := astFieldTag.Get("anyOf"); anyOf != "" {
 				typeNames := strings.Split(strings.TrimSpace(anyOf), ",")
 				for _, typeName := range typeNames {
-					schemaObject, _ := p.parseSchemaObject("", "", "", typeName)
+					schemaObject, err := p.parseSchemaObject("", "", "", typeName)
+					if err != nil {
+						return fmt.Errorf("unable to find object with name %s: %v", typeName, err)
+					}
 					fieldSchema.AnyOf = append(fieldSchema.AnyOf, &ReferenceObject{
 						Ref: addSchemaRefLinkPrefix(schemaObject.ID),
 					})
@@ -1613,92 +1637,8 @@ astFieldsLoop:
 
 		structSchema.Properties.Set(name, fieldSchema)
 	}
-	for _, astField := range astFields {
-		if len(astField.Names) > 0 {
-			continue
-		}
-		fieldSchema := &SchemaObject{}
-		typeAsString := p.getTypeAsString(astField.Type)
-		typeAsString = strings.TrimLeft(typeAsString, "*")
-		if strings.HasPrefix(typeAsString, "[]") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
-			if err != nil {
-				p.debug(err)
-				return
-			}
-		} else if strings.HasPrefix(typeAsString, "map[]") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
-			if err != nil {
-				p.debug(err)
-				return
-			}
-		} else if typeAsString == "time.Time" {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
-			if err != nil {
-				p.debug(err)
-				return
-			}
-		} else if strings.HasPrefix(typeAsString, "interface{}") {
-			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
-			if err != nil {
-				p.debug(err)
-				return
-			}
-		} else if !isBasicGoType(typeAsString) {
-			fieldSchemaSchemeObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
-			if err != nil {
-				p.debug("parseSchemaPropertiesFromStructFields err:", err)
-			} else {
-				fieldSchema.ID = fieldSchemaSchemeObjectID
-				schema, ok := p.KnownIDSchema[fieldSchemaSchemeObjectID]
-				if ok {
-					fieldSchema.Type = schema.Type
-					if schema.Items != nil {
-						fieldSchema.Items = schema.Items
-					}
-				}
-				fieldSchema.Ref = addSchemaRefLinkPrefix(fieldSchemaSchemeObjectID)
-			}
-		} else if isGoTypeOASType(typeAsString) {
-			fieldSchema.Type = goTypesOASTypes[typeAsString]
-		}
-		// embedded type
-		if len(astField.Names) == 0 {
-			if fieldSchema.Properties != nil {
-				for _, propertyName := range fieldSchema.Properties.Keys() {
-					_, exist := structSchema.Properties.Get(propertyName)
-					if exist {
-						continue
-					}
-					propertySchema, _ := fieldSchema.Properties.Get(propertyName)
-					structSchema.Properties.Set(propertyName, propertySchema)
-				}
-			} else if len(fieldSchema.Ref) != 0 && len(fieldSchema.ID) != 0 {
-				refSchema, ok := p.KnownIDSchema[fieldSchema.ID]
-				if ok {
-					if refSchema.Properties == nil {
-						p.debug("nil refSchema.Properties")
-						continue
-					}
-					for _, propertyName := range refSchema.Properties.Keys() {
-						refPropertySchema, _ := refSchema.Properties.Get(propertyName)
-						_, disabled := structSchema.DisabledFieldNames[refPropertySchema.(*SchemaObject).FieldName]
-						if disabled {
-							continue
-						}
-						// p.debug(">", propertyName)
-						_, exist := structSchema.Properties.Get(propertyName)
-						if exist {
-							continue
-						}
 
-						structSchema.Properties.Set(propertyName, refPropertySchema)
-					}
-				}
-			}
-			continue
-		}
-	}
+	return nil
 }
 
 func (p *parser) getTypeAsString(fieldType interface{}) string {

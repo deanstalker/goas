@@ -212,11 +212,16 @@ type SchemaObject struct {
 	Nullable             bool               `json:"nullable,omitempty"`
 	ReadOnly             bool               `json:"readOnly,omitempty"`
 	WriteOnly            bool               `json:"writeOnly"`
+	Discriminator        *Discriminator     `json:"discriminator,omitempty"`
 
 	// Ref is used when SchemaObject is used as a ReferenceObject
 	Ref string `json:"$ref,omitempty"`
 
 	// XML
+}
+
+type Discriminator struct {
+	PropertyName string `json:"propertyName"`
 }
 
 type ResponsesObject map[string]*ResponseObject // [status]ResponseObject

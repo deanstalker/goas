@@ -46,6 +46,7 @@ func action(c *cli.Context) error {
 }
 
 func main() {
+
 	app := cli.NewApp()
 	app.Name = "goas"
 	app.Usage = ""
