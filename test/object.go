@@ -10,5 +10,5 @@ type EnumProperties struct {
 
 // LimitedObjectProperties ...
 type LimitedObjectProperties struct {
-	Properties map[string]Citrus `json:"properties" minProperties:"2" maxProperties:"5"`
+	Properties map[string]Citrus `json:"properties" minProperties:"2" maxProperties:"5" example:"{\"orange\":{\"kind\":\"citrus\"}}"`
 }

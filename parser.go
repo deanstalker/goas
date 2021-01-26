@@ -1296,10 +1296,9 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName string, typeName 
 		if !isBasicGoType(typeAsString) {
 			schemaItemsSchemaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 			if err != nil {
-				p.debug("parseSchemaObject parse array items err:", err)
-			} else {
-				schemaObject.Items.Ref = addSchemaRefLinkPrefix(schemaItemsSchemaObjectID)
+				return nil, fmt.Errorf("parseSchemaObject parse array items err: %v", err)
 			}
+			schemaObject.Items.Ref = addSchemaRefLinkPrefix(schemaItemsSchemaObjectID)
 		} else if isGoTypeOASType(typeAsString) {
 			schemaObject.Items.Type = goTypesOASTypes[typeAsString]
 		}
@@ -1502,7 +1501,6 @@ astFieldsLoop:
 				switch fieldSchema.Type {
 				case "integer":
 					fieldSchema.MultipleOf, _ = strconv.Atoi(multipleOf)
-				case "float":
 				case "number":
 					fieldSchema.MultipleOf, _ = strconv.ParseFloat(multipleOf, 64)
 				default:
@@ -1514,7 +1512,6 @@ astFieldsLoop:
 				switch fieldSchema.Type {
 				case "integer":
 					fieldSchema.Minimum, _ = strconv.Atoi(min)
-				case "float":
 				case "number":
 					fieldSchema.Minimum, _ = strconv.ParseFloat(min, 64)
 				default:
@@ -1526,7 +1523,6 @@ astFieldsLoop:
 				switch fieldSchema.Type {
 				case "integer":
 					fieldSchema.Maximum, _ = strconv.Atoi(max)
-				case "float":
 				case "number":
 					fieldSchema.Maximum, _ = strconv.ParseFloat(max, 64)
 				default:

@@ -825,6 +825,10 @@ func TestParseParamComment(t *testing.T) {
 								GetMap(),
 							MinProperties: 2,
 							MaxProperties: 5,
+							Example: map[string]interface{}{
+								"orange": map[string]interface {
+								}{"kind": "citrus"},
+							},
 						}).
 						GetMap(),
 				},
@@ -858,10 +862,12 @@ func TestParseParamComment(t *testing.T) {
 						Set("color", &SchemaObject{
 							FieldName: "Color",
 							Type:      "string",
+							Example:   "red",
 						}).
 						Set("has_seed", &SchemaObject{
 							FieldName: "HasSeed",
 							Type:      "boolean",
+							Example:   true,
 						}).
 						GetMap(),
 				},
@@ -881,6 +887,12 @@ func TestParseParamComment(t *testing.T) {
 							MinItems:    5,
 							MaxItems:    10,
 							UniqueItems: true,
+							Example: []interface{}{
+								map[string]interface{}{
+									"color":    "red",
+									"has_seed": "true",
+								},
+							},
 						}).
 						GetMap(),
 				},
@@ -905,23 +917,42 @@ func TestParseParamComment(t *testing.T) {
 			},
 			wantSchema: map[string]*SchemaObject{
 				"Release": {
-					ID:                 "Release",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
-					Type:               "object",
-					DisabledFieldNames: make(map[string]struct{}),
+					ID:      "Release",
+					PkgName: fmt.Sprintf("%s/test", pkgName),
+					Type:    "object",
+					DisabledFieldNames: map[string]struct{}{
+						"deprecated": {},
+						"GoasOnly":   {},
+					},
+					Required: []string{
+						"Required",
+					},
 					Properties: util.ChainedOrderedMap{}.
 						New().
+						Set("multiple_of_10", &SchemaObject{
+							FieldName:  "MultipleOf10",
+							Type:       "integer",
+							MultipleOf: 10,
+						}).
+						Set("multiple_of_5_pc", &SchemaObject{
+							FieldName:  "MultipleOf5PC",
+							Type:       "number",
+							MultipleOf: 0.2,
+						}).
 						Set("range_int", &SchemaObject{
-							FieldName: "RangeInt",
-							Type:      "integer",
-							Minimum:   1,
-							Maximum:   100,
+							FieldName:   "RangeInt",
+							Type:        "integer",
+							Minimum:     1,
+							Maximum:     100,
+							Example:     3,
+							Description: "Range between 1% and 100%",
 						}).
 						Set("range_float", &SchemaObject{
 							FieldName: "RangeFloat",
 							Type:      "number",
 							Minimum:   0.01,
 							Maximum:   0.5,
+							Example:   0.2,
 						}).
 						Set("description", &SchemaObject{
 							FieldName:        "Description",
@@ -930,11 +961,161 @@ func TestParseParamComment(t *testing.T) {
 							ExclusiveMaximum: true,
 							MaxLength:        255,
 							MinLength:        30,
+							Example:          "any text over 30 characters",
 						}).
 						Set("version", &SchemaObject{
 							FieldName: "Version",
 							Type:      "string",
 							Pattern:   `^(?P<major>0|[1-9][0-9]*)\.(?P<minor>0|[1-9][0-9]*)\.(?P<patch>0|[1-9][0-9]*)(?:-(?P<prerelease>(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`,
+							Example:   "1.0.0-release",
+						}).
+						Set("Required", &SchemaObject{
+							FieldName: "Required",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"test custom array type - basic": {
+			pkgPath: "test",
+			pkgName: fmt.Sprintf("%s/test", pkgName),
+			comment: "post body test.ArrayOfStrings true \"Array Of Strings\"",
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: &MediaTypeObject{
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/ArrayOfStrings",
+							},
+						},
+					},
+					Required: true,
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"ArrayOfStrings": {
+					ID:      "ArrayOfStrings",
+					PkgName: fmt.Sprintf("%s/test", pkgName),
+					Type:    "array",
+					Items: &SchemaObject{
+						Type: "string",
+					},
+				},
+			},
+			expectErr: nil,
+		},
+		"test custom array type - object": {
+			pkgPath: "test",
+			pkgName: fmt.Sprintf("%s/test", pkgName),
+			comment: "post body test.ArrayOfCitrus true \"Array Of Citrus\"",
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/ArrayOfCitrus",
+							},
+						},
+					},
+					Required: true,
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"ArrayOfCitrus": {
+					ID:      "ArrayOfCitrus",
+					PkgName: fmt.Sprintf("%s/test", pkgName),
+					Type:    "array",
+					Items: &SchemaObject{
+						Ref: "#/components/schemas/Citrus",
+					},
+				},
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					Type:               "object",
+					DisabledFieldNames: make(map[string]struct{}),
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"test custom map type - basic": {
+			pkgPath: "test",
+			pkgName: fmt.Sprintf("%s/test", pkgName),
+			comment: "post body test.ObjectMap true \"Object Map - String Values\"",
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: &MediaTypeObject{
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/ObjectMap",
+							},
+						},
+					},
+					Required: true,
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"ObjectMap": {
+					ID:      "ObjectMap",
+					PkgName: fmt.Sprintf("%s/test", pkgName),
+					Type:    "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("key", &SchemaObject{
+							Type: "string",
+						}).
+						GetMap(),
+				},
+			},
+			expectErr: nil,
+		},
+		"test custom map type - object": {
+			pkgPath: "test",
+			pkgName: fmt.Sprintf("%s/test", pkgName),
+			comment: "post body test.ObjectCitrus true \"Object Citrus - String Values\"",
+			wantOp: &OperationObject{
+				RequestBody: &RequestBodyObject{
+					Content: map[string]*MediaTypeObject{
+						ContentTypeJson: {
+							Schema: SchemaObject{
+								Ref: "#/components/schemas/ObjectCitrus",
+							},
+						},
+					},
+					Required: true,
+				},
+			},
+			wantSchema: map[string]*SchemaObject{
+				"ObjectCitrus": {
+					ID:      "ObjectCitrus",
+					PkgName: fmt.Sprintf("%s/test", pkgName),
+					Type:    "object",
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("key", &SchemaObject{
+							Ref: "#/components/schemas/Citrus",
+						}).
+						GetMap(),
+				},
+				"Citrus": {
+					ID:                 "Citrus",
+					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					Type:               "object",
+					DisabledFieldNames: make(map[string]struct{}),
+					Properties: util.ChainedOrderedMap{}.
+						New().
+						Set("kind", &SchemaObject{
+							FieldName: "Kind",
+							Type:      "string",
 						}).
 						GetMap(),
 				},
