@@ -126,8 +126,7 @@ func TestParseParamComment(t *testing.T) {
 								Properties: types.NewOrderedMap().
 									Set("address", &types.SchemaObject{
 										Type: "string",
-									}).
-									GetMap(),
+									}),
 							},
 						},
 					},
@@ -174,8 +173,7 @@ func TestParseParamComment(t *testing.T) {
 										Type:        "string",
 										Format:      "binary",
 										Description: "Image upload",
-									}).
-									GetMap(),
+									}),
 							},
 						},
 					},
@@ -200,8 +198,7 @@ func TestParseParamComment(t *testing.T) {
 										Type:        "array",
 										Description: "Image upload",
 										Items:       &types.SchemaObject{Type: "string", Format: "binary"},
-									}).
-									GetMap(),
+									}),
 							},
 						},
 					},
@@ -228,8 +225,7 @@ func TestParseParamComment(t *testing.T) {
 										Type:        "string",
 										Format:      "string",
 										Description: "Content field",
-									}).
-									GetMap(),
+									}),
 							},
 						},
 					},
@@ -270,8 +266,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("url", &types.SchemaObject{
 							FieldName: "URL",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -308,8 +303,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("url", &types.SchemaObject{
 							FieldName: "URL",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -337,12 +331,10 @@ func TestParseParamComment(t *testing.T) {
 											Set("url", &types.SchemaObject{
 												FieldName: "URL",
 												Type:      "string",
-											}).
-											GetMap(),
+											}),
 										Ref:                "",
 										DisabledFieldNames: map[string]struct{}{},
-									}).
-									GetMap(),
+									}),
 							},
 						},
 					},
@@ -362,8 +354,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("url", &types.SchemaObject{
 							FieldName: "URL",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -393,8 +384,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"Citrus": {
 					ID:                 "Citrus",
@@ -405,8 +395,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"FruitOneOfAKind": {
 					ID:                 "FruitOneOfAKind",
@@ -426,8 +415,7 @@ func TestParseParamComment(t *testing.T) {
 									Ref: "#/components/schemas/Banana",
 								},
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -458,8 +446,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"Citrus": {
 					ID:                 "Citrus",
@@ -470,8 +457,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"FruitOneOfAKindDisc": {
 					ID:                 "FruitOneOfAKindDisc",
@@ -494,8 +480,7 @@ func TestParseParamComment(t *testing.T) {
 							Discriminator: &types.Discriminator{
 								PropertyName: "kind",
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -525,8 +510,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"Citrus": {
 					ID:                 "Citrus",
@@ -537,8 +521,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"FruitOneOfAKindInvalidDisc": {
 					ID:                 "FruitOneOfAKindInvalidDisc",
@@ -561,8 +544,7 @@ func TestParseParamComment(t *testing.T) {
 							Discriminator: &types.Discriminator{
 								PropertyName: "kind",
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: fmt.Errorf("unable to find discriminator field: kindle, in schema: Citrus"),
@@ -592,8 +574,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"Citrus": {
 					ID:                 "Citrus",
@@ -604,8 +585,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"FruitAllOfAKind": {
 					ID:                 "FruitAllOfAKind",
@@ -625,8 +605,7 @@ func TestParseParamComment(t *testing.T) {
 									Ref: "#/components/schemas/Banana",
 								},
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -657,8 +636,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"Citrus": {
 					ID:                 "Citrus",
@@ -669,8 +647,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"FruitAnyOfAKind": {
 					ID:                 "FruitAnyOfAKind",
@@ -690,8 +667,7 @@ func TestParseParamComment(t *testing.T) {
 									Ref: "#/components/schemas/Banana",
 								},
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -738,8 +714,7 @@ func TestParseParamComment(t *testing.T) {
 								"404",
 								"500",
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -769,8 +744,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 				"LimitedObjectProperties": {
 					ID:                 "LimitedObjectProperties",
@@ -792,18 +766,15 @@ func TestParseParamComment(t *testing.T) {
 										Set("kind", &types.SchemaObject{
 											FieldName: "Kind",
 											Type:      "string",
-										}).
-										GetMap(),
-								}).
-								GetMap(),
+										}),
+								}),
 							MinProperties: 2,
 							MaxProperties: 5,
 							Example: map[string]interface{}{
 								"orange": map[string]interface {
 								}{"kind": "citrus"},
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -840,8 +811,7 @@ func TestParseParamComment(t *testing.T) {
 							FieldName: "HasSeed",
 							Type:      "boolean",
 							Example:   true,
-						}).
-						GetMap(),
+						}),
 				},
 				"FruitBasketArray": {
 					ID:                 "FruitBasketArray",
@@ -864,8 +834,7 @@ func TestParseParamComment(t *testing.T) {
 									"has_seed": "true",
 								},
 							},
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -944,8 +913,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("Required", &types.SchemaObject{
 							FieldName: "Required",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -1012,8 +980,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -1042,8 +1009,7 @@ func TestParseParamComment(t *testing.T) {
 					Properties: types.NewOrderedMap().
 						Set("key", &types.SchemaObject{
 							Type: "string",
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,
@@ -1072,8 +1038,7 @@ func TestParseParamComment(t *testing.T) {
 					Properties: types.NewOrderedMap().
 						Set("key", &types.SchemaObject{
 							Ref: "#/components/schemas/Citrus",
-						}).
-						GetMap(),
+						}),
 				},
 				"Citrus": {
 					ID:                 "Citrus",
@@ -1084,8 +1049,7 @@ func TestParseParamComment(t *testing.T) {
 						Set("kind", &types.SchemaObject{
 							FieldName: "Kind",
 							Type:      "string",
-						}).
-						GetMap(),
+						}),
 				},
 			},
 			expectErr: nil,

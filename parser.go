@@ -19,11 +19,12 @@ import (
 	"strings"
 	"unicode"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/deanstalker/goas/pkg/types"
 
 	"github.com/deanstalker/goas/internal/util"
 
-	"github.com/iancoleman/orderedmap"
 	module "golang.org/x/mod/modfile"
 )
 
@@ -53,6 +54,14 @@ type parser struct {
 
 	Debug bool
 }
+
+const (
+	ModeStdOut     = "stdout"
+	ModeFileWriter = "file"
+
+	FormatJSON = "json"
+	FormatYAML = "yaml"
+)
 
 type pkg struct {
 	Name string
@@ -144,7 +153,7 @@ func newParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parse
 	return p, nil
 }
 
-func (p *parser) CreateOASFile(path string) error {
+func (p *parser) CreateOAS(path, mode, format string) error {
 	comments, err := p.parseFileComments()
 	if err != nil {
 		return err
@@ -174,17 +183,31 @@ func (p *parser) CreateOASFile(path string) error {
 		return err
 	}
 
-	fd, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("can not create the file %s: %v", path, err)
+	var output []byte
+	switch format {
+	case FormatJSON:
+		output, err = json.MarshalIndent(p.OpenAPI, "", "  ")
+		if err != nil {
+			return err
+		}
+	case FormatYAML:
+		output, err = yaml.Marshal(p.OpenAPI)
+		if err != nil {
+			return err
+		}
 	}
-	defer fd.Close()
 
-	output, err := json.MarshalIndent(p.OpenAPI, "", "  ")
-	if err != nil {
-		return err
+	switch mode {
+	case ModeFileWriter:
+		fd, err := os.Create(path)
+		if err != nil {
+			return fmt.Errorf("can not create the file %s: %v", path, err)
+		}
+		defer fd.Close()
+		_, err = fd.WriteString(string(output))
+	case ModeStdOut:
+		_, err = os.Stdout.WriteString(string(output))
 	}
-	_, err = fd.WriteString(string(output))
 
 	return err
 }
@@ -388,7 +411,7 @@ func (p *parser) parseModule() error {
 	return nil
 }
 func fixer(path, version string) (string, error) {
-	log.Printf("fixer - path: %s", path)
+	_ = path
 	return version, nil
 }
 
@@ -965,7 +988,7 @@ func (p *parser) handleFileOrForm(name, in string, operation *types.OperationObj
 					types.ContentTypeForm: {
 						Schema: types.SchemaObject{
 							Type:       types.TypeObject,
-							Properties: orderedmap.New(),
+							Properties: types.NewOrderedMap(),
 						},
 					},
 				},
@@ -1170,7 +1193,7 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName, typeName string)
 		if err != nil {
 			return nil, err
 		}
-		schemaObject.Properties = orderedmap.New()
+		schemaObject.Properties = types.NewOrderedMap()
 		if fieldName == "" {
 			fieldName = types.DefaultFieldName
 		}
@@ -1317,10 +1340,10 @@ func (p *parser) handleArrayType(schemaObject *types.SchemaObject, t *ast.ArrayT
 
 func (p *parser) handleMapType(fieldName string, schemaObject *types.SchemaObject, t *ast.MapType, pkgPath, pkgName string) error {
 	schemaObject.Type = types.TypeObject
-	schemaObject.Properties = orderedmap.New()
+	schemaObject.Properties = types.NewOrderedMap()
 	propertySchema := &types.SchemaObject{}
 	if fieldName == "" {
-		fieldName = "key" // TODO temporary
+		fieldName = types.DefaultFieldName
 	}
 	schemaObject.Properties.Set(fieldName, propertySchema)
 	typeAsString := p.getTypeAsString(t.Value)
@@ -1360,7 +1383,7 @@ func (p *parser) parseSchemaPropertiesFromStructFields(
 		return nil
 	}
 	var err error
-	structSchema.Properties = orderedmap.New()
+	structSchema.Properties = types.NewOrderedMap()
 	if structSchema.DisabledFieldNames == nil {
 		structSchema.DisabledFieldNames = map[string]struct{}{}
 	}
@@ -1457,7 +1480,6 @@ astFieldsLoop:
 				return err
 			}
 		}
-
 		structSchema.Properties.Set(name, fieldSchema)
 	}
 

@@ -30,6 +30,60 @@ go get -u github.com/deanstalker/goas
 
 You can document your service by placing annotations inside your godoc at various places in your code.
 
+### Generating Documentation
+
+```
+NAME:
+   goas
+
+USAGE:
+   goas [global options] [arguments...]
+
+VERSION:
+   v1.0.0
+
+GLOBAL OPTIONS:
+   --module-path value     goas will search @comment under the module
+   --main-file-path value  goas will start to search @comment from this main file
+   --handler-path value    goas only search handleFunc comments under the path
+   --output value          output file
+   --format value          json (default) or yaml format - for stdout only (default: "json")
+   --debug                 show debug message
+   --version, -v           print the version
+
+COPYRIGHT:
+   (c) 2018 mikun800527@gmail.com
+```
+
+Go to the root folder of your project
+```
+// go.mod and main file are in the same directory
+goas --module-path . --output oas.json
+
+// go.mod and main file are in a different directory
+goas --module-path . --main-file-path ./cmd/xxx/main.go --output oas.json
+
+// output spec to file in yaml format
+goas --module-path . --output oas.yaml
+
+// output spec to stdout in yaml format
+goas --module-path . --format yaml 2>&1
+```
+
+#### Using go generate
+
+* Create a new folder called `docs` under your project's root directory
+* Create a new file ie. `docs.go`, `api.go`, etc. in the `docs` folder.
+* In the file, add the following line underneath the package name (customise the command itself to suit your needs)
+```go
+//go:generate goas --module-path ../ --main-file-path ../docs/api.go --output ./api.yaml --handler-path ../pkg/api
+```
+* Go back to your root folder, and run
+```sh
+go generate ./docs
+```
+
+
 ### Service Description
 
 The service description comments can be located in any of your .go files. They provide general information about the service you are documenting.
@@ -107,13 +161,15 @@ For OAuth2 security schemes, it is possible to define scopes using the `@Securit
 By adding comments to your handler func godoc, you can document individual actions as well as their input and output.
 
 ```go
+package handler
+
 type User struct {
   ID   uint64 `json:"id" example:"100" description:"User identity"`
   Name string `json:"name" example:"Mikun"` 
 }
 
 type UsersResponse struct {
-  Data []Users `json:"users" example:"[{\"id\":100, \"name\":\"Mikun\"}]"`
+  Data []User `json:"users" example:"[{\"id\":100, \"name\":\"Mikun\"}]"`
 }
 
 type Error struct {
@@ -200,14 +256,3 @@ func PostUser() {
 ```
 - {path}: The URL path.
 - {method}: The HTTP Method. Must be put in brackets.
-
-### Documentation Generation
-
-Go to the folder where is main.go in
-```
-// go.mod and main file are in the same directory
-goas --module-path . --output oas.json
-
-// go.mod and main file are in the different directory
-goas --module-path . --main-file-path ./cmd/xxx/main.go --output oas.json
-```
