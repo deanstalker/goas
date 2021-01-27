@@ -37,20 +37,17 @@ var flags = []cli.Flag{
 }
 
 func action(c *cli.Context) error {
-	p, err := NewParser(c.GlobalString("module-path"), c.GlobalString("main-file-path"), c.GlobalString("handler-path"), c.GlobalBool("debug"))
+	p, err := newParser(c.GlobalString("module-path"), c.GlobalString("main-file-path"), c.GlobalString("handler-path"), c.GlobalBool("debug"))
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("%+v\n", p)
 	return p.CreateOASFile(c.GlobalString("output"))
 }
 
 func main() {
-
 	app := cli.NewApp()
 	app.Name = "goas"
 	app.Usage = ""
-	// app.UsageText = "goas [options]"
 	app.Version = version
 	app.Copyright = "(c) 2018 mikun800527@gmail.com"
 	app.HideHelp = true

@@ -1,4 +1,4 @@
-package main
+package types
 
 import (
 	"github.com/iancoleman/orderedmap"
@@ -8,7 +8,7 @@ const (
 	OpenAPIVersion = "3.0.0"
 
 	ContentTypeText = "text/plain"
-	ContentTypeJson = "application/json"
+	ContentTypeJSON = "application/json"
 	ContentTypeForm = "multipart/form-data"
 
 	AttributeTitle        = "@title"
@@ -43,7 +43,51 @@ const (
 	AttributeResource = "@resource"
 	AttributeRoute    = "@route"
 	AttributeRouter   = "@router"
+
+	KeywordRequired = "required"
+
+	InFile  = "file"
+	InFiles = "files"
+	InForm  = "form"
+	InBody  = "body"
+	InPath  = "path"
+
+	TypeBoolean = "boolean"
+	TypeInteger = "integer"
+	TypeNumber  = "number"
+	TypeObject  = "object"
+	TypeArray   = "array"
+
+	DefaultFieldName = "key"
+
+	GoTypeTime = "time.Time"
+
+	MessageInvalidExample = "invalid example"
 )
+
+// GoTypesOASTypes conversion map
+var GoTypesOASTypes = map[string]string{
+	"bool":    "boolean",
+	"uint":    "integer",
+	"uint8":   "integer",
+	"uint16":  "integer",
+	"uint32":  "integer",
+	"uint64":  "integer",
+	"int":     "integer",
+	"int8":    "integer",
+	"int16":   "integer",
+	"int32":   "integer",
+	"int64":   "integer",
+	"float32": "number",
+	"float64": "number",
+	"string":  "string",
+}
+
+// IsGoTypeOASType converts go types to openapi types
+func IsGoTypeOASType(typeName string) bool {
+	_, ok := GoTypesOASTypes[typeName]
+	return ok
+}
 
 type OpenAPIObject struct {
 	OpenAPI string         `json:"openapi"` // Required
@@ -273,7 +317,7 @@ type SecuritySchemeObject struct {
 	Name string `json:"name,omitempty"`
 
 	// OpenID
-	OpenIdConnectUrl string `json:"openIdConnectUrl,omitempty"`
+	OpenIDConnectURL string `json:"openIdConnectUrl,omitempty"`
 
 	// OAuth2
 	OAuthFlows *SecuritySchemeOauthObject `json:"flows,omitempty"`
@@ -307,12 +351,11 @@ func (s *SecuritySchemeOauthObject) ApplyScopes(scopes map[string]string) {
 }
 
 type SecuritySchemeOauthFlowObject struct {
-	AuthorizationUrl string            `json:"authorizationUrl,omitempty"`
-	TokenUrl         string            `json:"tokenUrl,omitempty"`
+	AuthorizationURL string            `json:"authorizationUrl,omitempty"`
+	TokenURL         string            `json:"tokenUrl,omitempty"`
 	Scopes           map[string]string `json:"scopes"`
 }
 
-// ExternalDocumentationObject ...
 type ExternalDocumentationObject struct {
 	Description string `json:"description,omitempty"`
 	URL         string `json:"url"`
