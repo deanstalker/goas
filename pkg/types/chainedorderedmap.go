@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	"log"
 
 	"github.com/iancoleman/orderedmap"
 )
@@ -40,10 +39,14 @@ func (c *ChainedOrderedMap) MarshalJSON() ([]byte, error) {
 	return c.m.MarshalJSON()
 }
 
-// MarshalYAML where orderedmap.OrderedMap cannot handle yaml marshalling
+func (c *ChainedOrderedMap) UnmarshalJSON(b []byte) error {
+	c.m = orderedmap.New()
+	return c.m.UnmarshalJSON(b)
+}
+
+// MarshalYAML where orderedmap.OrderedMap cannot handle yaml marshaling
 func (c *ChainedOrderedMap) MarshalYAML() (interface{}, error) {
 	data, err := c.m.MarshalJSON()
-	log.Printf("marshal json: %s", data)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +55,19 @@ func (c *ChainedOrderedMap) MarshalYAML() (interface{}, error) {
 	if err := json.Unmarshal(data, &in); err != nil {
 		return nil, err
 	}
-	log.Printf("unmarshal json: %s", in)
 
 	return in, nil
+}
+
+func (c *ChainedOrderedMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var in map[string]map[string]interface{}
+	if err := unmarshal(&in); err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(in)
+	if err != nil {
+		return err
+	}
+	return c.UnmarshalJSON(data)
 }

@@ -31,6 +31,7 @@ const (
 	AttributeHidden = "@hidden"
 
 	AttributeParam   = "@param"
+	AttributeHeader  = "@header"
 	AttributeSuccess = "@success"
 	AttributeFailure = "@failure"
 
@@ -212,8 +213,8 @@ type MediaTypeObject struct {
 }
 
 type SchemaObject struct {
-	ID                 string              `json:"-"`          // For goas
-	PkgName            string              `json:"-"`          // For goas
+	ID                 string              `json:"-" yaml:"-"` // For goas
+	PkgName            string              `json:"-" yaml:"-"` // For goas
 	FieldName          string              `json:"-" yaml:"-"` // For goas
 	DisabledFieldNames map[string]struct{} `json:"-" yaml:"-"` // For goas
 
@@ -279,8 +280,8 @@ type ResponseObject struct {
 }
 
 type HeaderObject struct {
-	Description string `json:"description,omitempty" yaml:",omitempty"`
-	Type        string `json:"type,omitempty" yaml:",omitempty"`
+	Description string        `json:"description,omitempty" yaml:",omitempty"`
+	Schema      *SchemaObject `json:"schema,omitempty" yaml:",omitempty"`
 
 	// Ref is used when HeaderObject is as a ReferenceObject
 	Ref string `json:"$ref,omitempty" yaml:"$ref,omitempty"`

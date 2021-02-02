@@ -1,4 +1,4 @@
-package test
+package unit
 
 // EnumProperties enumerated properties
 // @Title Enumerator Properties

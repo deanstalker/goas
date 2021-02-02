@@ -1,4 +1,4 @@
-package test
+package unit
 
 type ArrayOfStrings []string
 type ArrayOfCitrus []Citrus

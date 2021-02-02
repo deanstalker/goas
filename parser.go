@@ -48,6 +48,8 @@ type parser struct {
 	KnownIDSchema     map[string]*types.SchemaObject
 	KnownOperationIDs []string
 
+	ExcludePkgs []string
+
 	TypeSpecs               map[string]map[string]*ast.TypeSpec
 	PkgPathAstPkgCache      map[string]map[string]*ast.Package
 	PkgNameImportedPkgAlias map[string]map[string][]string
@@ -58,6 +60,7 @@ type parser struct {
 const (
 	ModeStdOut     = "stdout"
 	ModeFileWriter = "file"
+	ModeTest       = "test"
 
 	FormatJSON = "json"
 	FormatYAML = "yaml"
@@ -68,8 +71,9 @@ type pkg struct {
 	Path string
 }
 
-func newParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parser, error) {
+func newParser(modulePath, mainFilePath, handlerPath, excludePackages string, debug bool) (*parser, error) {
 	p := &parser{
+		ExcludePkgs:             []string{},
 		KnownPkgs:               []pkg{},
 		KnownNamePkg:            map[string]*pkg{},
 		KnownPathPkg:            map[string]*pkg{},
@@ -150,37 +154,36 @@ func newParser(modulePath, mainFilePath, handlerPath string, debug bool) (*parse
 	}
 	p.HandlerPath = handlerPath
 
+	p.ExcludePkgs = strings.Split(excludePackages, ",")
+
 	return p, nil
 }
 
-func (p *parser) CreateOAS(path, mode, format string) error {
+func (p *parser) CreateOAS(path, mode, format string) (*string, error) {
 	comments, err := p.parseFileComments()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// parse basic info
 	err = p.parseInfo(comments)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// parse sub-package
-	err = p.parseModule()
-	if err != nil {
-		return err
-	}
+	p.parseModule()
 
 	// parse go.mod info
 	err = p.parseGoMod()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// parse APIs info
 	err = p.parseAPIs()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var output []byte
@@ -188,28 +191,32 @@ func (p *parser) CreateOAS(path, mode, format string) error {
 	case FormatJSON:
 		output, err = json.MarshalIndent(p.OpenAPI, "", "  ")
 		if err != nil {
-			return err
+			return nil, err
 		}
 	case FormatYAML:
 		output, err = yaml.Marshal(p.OpenAPI)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
+	var fd *os.File
 	switch mode {
 	case ModeFileWriter:
-		fd, err := os.Create(path)
+		fd, err = os.Create(path)
 		if err != nil {
-			return fmt.Errorf("can not create the file %s: %v", path, err)
+			return nil, fmt.Errorf("can not create the file %s: %v", path, err)
 		}
 		defer fd.Close()
-		_, err = fd.WriteString(string(output))
+		_, _ = fd.WriteString(string(output))
 	case ModeStdOut:
 		_, err = os.Stdout.WriteString(string(output))
+	case ModeTest:
+		test := string(output)
+		return &test, nil
 	}
 
-	return err
+	return nil, err
 }
 
 func (p *parser) parseFileComments() ([]*ast.CommentGroup, error) {
@@ -385,7 +392,7 @@ func (p *parser) applySecurityScopes(oauthScopes map[string]map[string]string) {
 	}
 }
 
-func (p *parser) parseModule() error {
+func (p *parser) parseModule() {
 	walker := func(path string, info os.FileInfo, err error) error {
 		if info != nil && info.IsDir() {
 			if strings.HasPrefix(strings.Trim(strings.TrimPrefix(path, p.ModulePath), "/"), ".git") {
@@ -398,6 +405,12 @@ func (p *parser) parseModule() error {
 
 			name := filepath.Join(p.ModuleName, strings.TrimPrefix(path, p.ModulePath))
 			name = filepath.ToSlash(name)
+
+			for _, excludeName := range p.ExcludePkgs {
+				if strings.EqualFold(name, excludeName) {
+					return nil
+				}
+			}
 			p.KnownPkgs = append(p.KnownPkgs, pkg{
 				Name: name,
 				Path: path,
@@ -408,7 +421,6 @@ func (p *parser) parseModule() error {
 		return nil
 	}
 	_ = filepath.Walk(p.ModulePath, walker)
-	return nil
 }
 func fixer(path, version string) (string, error) {
 	_ = path
@@ -680,6 +692,10 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 			)
 		case types.AttributeParam:
 			if err := p.parseParamComment(pkgPath, pkgName, operation, strings.TrimSpace(comment[len(attribute):])); err != nil {
+				return err
+			}
+		case types.AttributeHeader:
+			if err := p.parseResponseHeader(pkgPath, pkgName, operation, strings.TrimSpace(comment[len(attribute):])); err != nil {
 				return err
 			}
 		case types.AttributeSuccess, types.AttributeFailure:
@@ -971,9 +987,9 @@ func (p *parser) handleParam(
 		operation.Parameters = append(operation.Parameters, parameterObject)
 	} else if types.IsGoTypeOASType(goType) {
 		parameterObject.Schema = &types.SchemaObject{
-			Type:        types.GoTypesOASTypes[goType],
-			Format:      types.GoTypesOASFormats[goType],
-			Description: description,
+			Type:   types.GoTypesOASTypes[goType],
+			Format: types.GoTypesOASFormats[goType],
+			//Description: description,
 		}
 		operation.Parameters = append(operation.Parameters, parameterObject)
 	}
@@ -1022,13 +1038,91 @@ func (p *parser) handleFileOrForm(name, in string, operation *types.OperationObj
 	return false
 }
 
+func (p *parser) parseResponseHeader(pkgPath, pkgName string, operation *types.OperationObject, comment string) error {
+	// {status} {name} {jsonType} {goType} {description}
+	// 201  x-next  object  string  "A link"
+	minValidSegments := 4
+	re := regexp.MustCompile(`(?P<status>[\w-]+)[\s]*(?P<name>[\w-]+)[\s]*(?P<jsonType>[\w{}]+)?[\s]+(?P<goType>[\w\-./\[\]]+)?[^"]*(?P<description>.*)?`)
+	matches := re.FindStringSubmatch(comment)
+
+	paramsMap := make(map[string]string)
+	for i, name := range re.SubexpNames() {
+		if i > 0 && i <= len(matches) {
+			paramsMap[name] = matches[i]
+		}
+	}
+
+	if len(matches) <= minValidSegments {
+		return fmt.Errorf("parseResponseHeader can not parse response header \"%s\", matches: %v", comment, matches)
+	}
+
+	status := paramsMap["status"]
+	if strings.EqualFold(status, "default") {
+		_, err := strconv.Atoi(status)
+		if err != nil {
+			return fmt.Errorf("parseResponseHeader: http status must be int, but got %s", status)
+		}
+	}
+
+	var responseObject *types.ResponseObject
+	if _, ok := operation.Responses[status]; !ok {
+		responseObject = &types.ResponseObject{
+			Content: map[string]*types.MediaTypeObject{},
+			Headers: make(map[string]*types.HeaderObject),
+		}
+	} else {
+		responseObject = operation.Responses[status]
+	}
+
+	if responseObject.Headers == nil {
+		responseObject.Headers = make(map[string]*types.HeaderObject)
+	}
+
+	if goTypeRaw := paramsMap["goType"]; goTypeRaw != "" {
+		re = regexp.MustCompile(`\[\w*]`)
+		goType := re.ReplaceAllString(goTypeRaw, "[]")
+		if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[]") {
+			schema, err := p.parseSchemaObject(pkgPath, pkgName, "", goType)
+			if err != nil {
+				return fmt.Errorf("parseResponseHeader: cannot parse goType: %s", goType)
+			}
+			responseObject.Headers[paramsMap["name"]] = &types.HeaderObject{
+				Description: strings.Trim(paramsMap["description"], "\""),
+				Schema:      schema,
+			}
+		} else {
+			typeName, err := p.registerType(pkgPath, pkgName, matches[3])
+			if err != nil {
+				return err
+			}
+			if types.IsBasicGoType(typeName) {
+				responseObject.Headers[paramsMap["name"]] = &types.HeaderObject{
+					Description: strings.Trim(paramsMap["description"], "\""),
+					Schema: &types.SchemaObject{
+						Type: "string",
+					},
+				}
+			} else {
+				responseObject.Headers[paramsMap["name"]] = &types.HeaderObject{
+					Description: strings.Trim(paramsMap["description"], "\""),
+					Schema: &types.SchemaObject{
+						Ref: util.AddSchemaRefLinkPrefix(typeName),
+					},
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *types.OperationObject, comment string) error {
 	// {status}  {jsonType}  {goType}     {description}
 	// 201       object      models.User  "User Model"
 	// if 204 or something else without empty return payload
 	// 204 "User Model"
 	minValidSegments := 2
-	re := regexp.MustCompile(`(?P<status>[\d]+)[\s]*(?P<jsonType>[\w{}]+)?[\s]+(?P<goType>[\w\-./\[\]]+)?[^"]*(?P<description>.*)?`)
+	re := regexp.MustCompile(`(?P<status>[\w]+)[\s]*(?P<jsonType>[\w{}]+)?[\s]+(?P<goType>[\w\-./\[\]]+)?[^"]*(?P<description>.*)?`)
 	matches := re.FindStringSubmatch(comment)
 
 	paramsMap := make(map[string]string)
@@ -1043,9 +1137,11 @@ func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *types.
 	}
 
 	status := paramsMap["status"]
-	_, err := strconv.Atoi(status)
-	if err != nil {
-		return fmt.Errorf("parseResponseComment: http status must be int, but got %s", status)
+	if !strings.EqualFold(status, "default") {
+		_, err := strconv.Atoi(status)
+		if err != nil {
+			return fmt.Errorf("parseResponseComment: http status must be int, but got %s", status)
+		}
 	}
 
 	// ignore type if not set
@@ -1707,7 +1803,7 @@ func (p *parser) handleOneOfTag(astFieldTag reflect.StructTag, fieldSchema *type
 				return fmt.Errorf("unable to find object with name %s: %v", typeName, err)
 			}
 
-			if fieldSchema.Discriminator != nil {
+			if fieldSchema.Discriminator != nil && schemaObject.Properties != nil {
 				if _, ok := schemaObject.Properties.Get(fieldSchema.Discriminator.PropertyName); !ok {
 					return fmt.Errorf("unable to find discriminator field: %s, in schema: %s", fieldSchema.Discriminator.PropertyName, schemaObject.ID)
 				}

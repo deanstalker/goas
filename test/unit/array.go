@@ -1,4 +1,4 @@
-package test
+package unit
 
 // FruitBasketArray Array of Fruit in a Basket
 type FruitBasketArray struct {

@@ -1,12 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/ast"
 	"os"
 	"sort"
 	"testing"
+
+	"github.com/iancoleman/orderedmap"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/deanstalker/goas/pkg/types"
 
@@ -39,9 +44,8 @@ func TestParseParamComment(t *testing.T) {
 						Required:    true,
 						Example:     nil,
 						Schema: &types.SchemaObject{
-							Type:        "string",
-							Format:      "string",
-							Description: "Locale code",
+							Type:   "string",
+							Format: "string",
 						},
 					},
 				},
@@ -62,9 +66,8 @@ func TestParseParamComment(t *testing.T) {
 						Required:    true,
 						Example:     nil,
 						Schema: &types.SchemaObject{
-							Type:        "string",
-							Format:      "string",
-							Description: "Locale code",
+							Type:   "string",
+							Format: "string",
 						},
 					},
 				},
@@ -362,7 +365,7 @@ func TestParseParamComment(t *testing.T) {
 		"struct in alternate package - test oneOf a kind": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.FruitOneOfAKind false "Fruit - Test oneOf a Kind"`,
+			comment: `post body unit.FruitOneOfAKind false "Fruit - Test oneOf a Kind"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -377,7 +380,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Banana": {
 					ID:                 "Banana",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -388,7 +391,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -399,7 +402,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"FruitOneOfAKind": {
 					ID:                 "FruitOneOfAKind",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Title:              "One of a kind Fruit",
@@ -424,7 +427,7 @@ func TestParseParamComment(t *testing.T) {
 		"struct in alternate package - test oneOf a kind with discriminator": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.FruitOneOfAKindDisc false "Fruit - Test oneOf a Kind"`,
+			comment: `post body unit.FruitOneOfAKindDisc false "Fruit - Test oneOf a Kind"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -439,7 +442,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Banana": {
 					ID:                 "Banana",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -450,7 +453,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -461,7 +464,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"FruitOneOfAKindDisc": {
 					ID:                 "FruitOneOfAKindDisc",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Title:              "One of a kind Fruit with Discriminator",
@@ -488,7 +491,7 @@ func TestParseParamComment(t *testing.T) {
 		"struct in alternate package - test oneOf a kind with invalid discriminator": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.FruitOneOfAKindInvalidDisc false "Fruit - Test oneOf a Kind"`,
+			comment: `post body unit.FruitOneOfAKindInvalidDisc false "Fruit - Test oneOf a Kind"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -503,7 +506,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Banana": {
 					ID:                 "Banana",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -514,7 +517,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -525,7 +528,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"FruitOneOfAKindInvalidDisc": {
 					ID:                 "FruitOneOfAKindInvalidDisc",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Title:              "One of a kind Fruit with Discriminator",
@@ -552,7 +555,7 @@ func TestParseParamComment(t *testing.T) {
 		"struct in alternate package - test allOf a kind": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.FruitAllOfAKind false "Fruit - Test allOf a Kind"`,
+			comment: `post body unit.FruitAllOfAKind false "Fruit - Test allOf a Kind"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -567,7 +570,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Banana": {
 					ID:                 "Banana",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -578,7 +581,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -589,7 +592,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"FruitAllOfAKind": {
 					ID:                 "FruitAllOfAKind",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Title:              "All of a kind",
@@ -614,7 +617,7 @@ func TestParseParamComment(t *testing.T) {
 		"struct in alternate package - test anyOf a kind": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.FruitAnyOfAKind false "Fruit - Test anyOf a Kind"`,
+			comment: `post body unit.FruitAnyOfAKind false "Fruit - Test anyOf a Kind"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -629,7 +632,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Banana": {
 					ID:                 "Banana",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -640,7 +643,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -651,7 +654,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"FruitAnyOfAKind": {
 					ID:                 "FruitAnyOfAKind",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Title:              "Any of a kind",
@@ -676,7 +679,7 @@ func TestParseParamComment(t *testing.T) {
 		"test enum - string and numeric": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.EnumProperties false "Enum Properties"`,
+			comment: `post body unit.EnumProperties false "Enum Properties"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -691,7 +694,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"EnumProperties": {
 					ID:                 "EnumProperties",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Title:              "Enumerator Properties",
@@ -722,7 +725,7 @@ func TestParseParamComment(t *testing.T) {
 		"test object - limited properties": {
 			pkgPath: dir,
 			pkgName: "test",
-			comment: `post body test.LimitedObjectProperties false "Limited Object Properties"`,
+			comment: `post body unit.LimitedObjectProperties false "Limited Object Properties"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -737,7 +740,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -748,7 +751,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"LimitedObjectProperties": {
 					ID:                 "LimitedObjectProperties",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -759,7 +762,7 @@ func TestParseParamComment(t *testing.T) {
 							Properties: types.NewOrderedMap().
 								Set("key", &types.SchemaObject{
 									ID:                 "Citrus",
-									PkgName:            fmt.Sprintf("%s/test", pkgName),
+									PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 									Type:               "object",
 									DisabledFieldNames: make(map[string]struct{}),
 									Properties: types.NewOrderedMap().
@@ -781,8 +784,8 @@ func TestParseParamComment(t *testing.T) {
 		},
 		"test array - min, max and unique": {
 			pkgPath: "test",
-			pkgName: fmt.Sprintf("%s/test", pkgName),
-			comment: `post body test.FruitBasketArray true "Fruit Basket"`,
+			pkgName: fmt.Sprintf("%s/test/unit", pkgName),
+			comment: `post body unit.FruitBasketArray true "Fruit Basket"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -798,7 +801,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Fruit": {
 					ID:                 "Fruit",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -815,7 +818,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"FruitBasketArray": {
 					ID:                 "FruitBasketArray",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					DisabledFieldNames: make(map[string]struct{}),
 					Type:               "object",
 					Properties: types.NewOrderedMap().
@@ -841,8 +844,8 @@ func TestParseParamComment(t *testing.T) {
 		},
 		"test scalar": {
 			pkgPath: "test",
-			pkgName: fmt.Sprintf("%s/test", pkgName),
-			comment: `post body test.Release true "Release"`,
+			pkgName: fmt.Sprintf("%s/test/unit", pkgName),
+			comment: `post body unit.Release true "Release"`,
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -858,7 +861,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"Release": {
 					ID:      "Release",
-					PkgName: fmt.Sprintf("%s/test", pkgName),
+					PkgName: fmt.Sprintf("%s/test/unit", pkgName),
 					Type:    "object",
 					DisabledFieldNames: map[string]struct{}{
 						"deprecated": {},
@@ -920,8 +923,8 @@ func TestParseParamComment(t *testing.T) {
 		},
 		"test custom array type - basic": {
 			pkgPath: "test",
-			pkgName: fmt.Sprintf("%s/test", pkgName),
-			comment: "post body test.ArrayOfStrings true \"Array Of Strings\"",
+			pkgName: fmt.Sprintf("%s/test/unit", pkgName),
+			comment: "post body unit.ArrayOfStrings true \"Array Of Strings\"",
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -937,7 +940,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"ArrayOfStrings": {
 					ID:      "ArrayOfStrings",
-					PkgName: fmt.Sprintf("%s/test", pkgName),
+					PkgName: fmt.Sprintf("%s/test/unit", pkgName),
 					Type:    "array",
 					Items: &types.SchemaObject{
 						Type: "string",
@@ -948,8 +951,8 @@ func TestParseParamComment(t *testing.T) {
 		},
 		"test custom array type - object": {
 			pkgPath: "test",
-			pkgName: fmt.Sprintf("%s/test", pkgName),
-			comment: "post body test.ArrayOfCitrus true \"Array Of Citrus\"",
+			pkgName: fmt.Sprintf("%s/test/unit", pkgName),
+			comment: "post body unit.ArrayOfCitrus true \"Array Of Citrus\"",
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -965,7 +968,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"ArrayOfCitrus": {
 					ID:      "ArrayOfCitrus",
-					PkgName: fmt.Sprintf("%s/test", pkgName),
+					PkgName: fmt.Sprintf("%s/test/unit", pkgName),
 					Type:    "array",
 					Items: &types.SchemaObject{
 						Ref: "#/components/schemas/Citrus",
@@ -973,7 +976,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					Type:               "object",
 					DisabledFieldNames: make(map[string]struct{}),
 					Properties: types.NewOrderedMap().
@@ -987,8 +990,8 @@ func TestParseParamComment(t *testing.T) {
 		},
 		"test custom map type - basic": {
 			pkgPath: "test",
-			pkgName: fmt.Sprintf("%s/test", pkgName),
-			comment: "post body test.ObjectMap true \"Object Map - String Values\"",
+			pkgName: fmt.Sprintf("%s/test/unit", pkgName),
+			comment: "post body unit.ObjectMap true \"Object Map - String Values\"",
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -1004,7 +1007,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"ObjectMap": {
 					ID:      "ObjectMap",
-					PkgName: fmt.Sprintf("%s/test", pkgName),
+					PkgName: fmt.Sprintf("%s/test/unit", pkgName),
 					Type:    "object",
 					Properties: types.NewOrderedMap().
 						Set("key", &types.SchemaObject{
@@ -1016,8 +1019,8 @@ func TestParseParamComment(t *testing.T) {
 		},
 		"test custom map type - object": {
 			pkgPath: "test",
-			pkgName: fmt.Sprintf("%s/test", pkgName),
-			comment: "post body test.ObjectCitrus true \"Object Citrus - String Values\"",
+			pkgName: fmt.Sprintf("%s/test/unit", pkgName),
+			comment: "post body unit.ObjectCitrus true \"Object Citrus - String Values\"",
 			wantOp: &types.OperationObject{
 				RequestBody: &types.RequestBodyObject{
 					Content: map[string]*types.MediaTypeObject{
@@ -1033,7 +1036,7 @@ func TestParseParamComment(t *testing.T) {
 			wantSchema: map[string]*types.SchemaObject{
 				"ObjectCitrus": {
 					ID:      "ObjectCitrus",
-					PkgName: fmt.Sprintf("%s/test", pkgName),
+					PkgName: fmt.Sprintf("%s/test/unit", pkgName),
 					Type:    "object",
 					Properties: types.NewOrderedMap().
 						Set("key", &types.SchemaObject{
@@ -1042,7 +1045,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 				"Citrus": {
 					ID:                 "Citrus",
-					PkgName:            fmt.Sprintf("%s/test", pkgName),
+					PkgName:            fmt.Sprintf("%s/test/unit", pkgName),
 					Type:               "object",
 					DisabledFieldNames: make(map[string]struct{}),
 					Properties: types.NewOrderedMap().
@@ -1981,9 +1984,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 						},
@@ -2031,9 +2033,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 						},
@@ -2094,9 +2095,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 							{
@@ -2105,9 +2105,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "User ID",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "integer",
-									Format:      "int64",
-									Description: "User ID",
+									Type:   "integer",
+									Format: "int64",
 								},
 							},
 						},
@@ -2168,9 +2167,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 							{
@@ -2179,9 +2177,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "User ID",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "integer",
-									Format:      "int64",
-									Description: "User ID",
+									Type:   "integer",
+									Format: "int64",
 								},
 							},
 						},
@@ -2241,9 +2238,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 							{
@@ -2252,9 +2248,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "User ID",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "integer",
-									Format:      "int64",
-									Description: "User ID",
+									Type:   "integer",
+									Format: "int64",
 								},
 							},
 						},
@@ -2300,9 +2295,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 							{
@@ -2311,9 +2305,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "User ID",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "integer",
-									Format:      "int64",
-									Description: "User ID",
+									Type:   "integer",
+									Format: "int64",
 								},
 							},
 						},
@@ -2348,9 +2341,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 							{
@@ -2359,9 +2351,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "User ID",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "integer",
-									Format:      "int64",
-									Description: "User ID",
+									Type:   "integer",
+									Format: "int64",
 								},
 							},
 						},
@@ -2396,9 +2387,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "Locale code",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "string",
-									Format:      "string",
-									Description: "Locale code",
+									Type:   "string",
+									Format: "string",
 								},
 							},
 							{
@@ -2407,9 +2397,8 @@ func TestParseOperation(t *testing.T) {
 								Description: "User ID",
 								Required:    true,
 								Schema: &types.SchemaObject{
-									Type:        "integer",
-									Format:      "int64",
-									Description: "User ID",
+									Type:   "integer",
+									Format: "int64",
 								},
 							},
 						},
@@ -2439,6 +2428,64 @@ func TestParseOperation(t *testing.T) {
 	}
 }
 
+func TestIntegration(t *testing.T) {
+	// @see https://github.com/OAI/OpenAPI-Specification/blob/master/examples/v3.0/petstore.yaml
+	tests := map[string]struct {
+		mode   string
+		format string
+	}{
+		"integration test - yaml": {
+			ModeTest,
+			FormatYAML,
+		},
+		"integration test - json": {
+			ModeTest,
+			FormatJSON,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			path, _ := util.GetModulePath("./go.mod")
+			p, _ := newParser(
+				"./",
+				"test/integration/docs.go",
+				"test/integration/pkg/integration_handler",
+				fmt.Sprintf("%s/test/unit", path),
+				false,
+			)
+			test, err := p.CreateOAS("", tc.mode, tc.format)
+			if err != nil {
+				assert.NoError(t, err)
+			}
+
+			assert.NotEmpty(t, test)
+
+			var oapi *types.OpenAPIObject
+			switch tc.format {
+			case FormatYAML:
+				err = yaml.Unmarshal([]byte(*test), &oapi)
+			case FormatJSON:
+				err = json.Unmarshal([]byte(*test), &oapi)
+			}
+			assert.NoError(t, err)
+
+			assert.Equal(t, "3.0.0", oapi.OpenAPI)
+			assert.Equal(t, "Swagger Pet Store", oapi.Info.Title)
+			assert.Equal(t, "MIT", oapi.Info.License.Name)
+			assert.Equal(t, "http://petstore.swagger.io/v1", oapi.Servers[0].URL)
+			assert.Equal(t, "List all pets", oapi.Paths["/pets"].Get.Summary)
+			assert.Equal(t, "listPets", oapi.Paths["/pets"].Get.OperationID)
+			assert.Equal(t, "object", oapi.Components.Schemas["Pet"].Type)
+			id, ok := oapi.Components.Schemas["Pet"].Properties.Get("id")
+			strictID := id.(orderedmap.OrderedMap)
+			propertyType, _ := strictID.Get("type")
+			assert.True(t, ok)
+			assert.Equal(t, "integer", propertyType)
+		})
+	}
+}
+
 func commentSliceToCommentGroup(commentSlice []string) []*ast.CommentGroup {
 	var comments []*ast.Comment
 	for _, comment := range commentSlice {
@@ -2459,18 +2506,18 @@ func commentSliceToCommentGroup(commentSlice []string) []*ast.CommentGroup {
 }
 
 func partialBootstrap() (*parser, error) {
+	path, _ := util.GetModulePath("./go.mod")
 	p, err := newParser(
 		"./",
 		"./main.go",
 		"",
+		fmt.Sprintf("%s/test/integration,%s/test/integration/pkg/integration_handler", path, path),
 		false,
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := p.parseModule(); err != nil {
-		return nil, err
-	}
+	p.parseModule()
 	if err := p.parseGoMod(); err != nil {
 		return nil, err
 	}

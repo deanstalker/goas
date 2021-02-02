@@ -36,6 +36,11 @@ var flags = []cli.Flag{
 		Value: "json",
 		Usage: "json (default) or yaml format - for stdout only",
 	},
+	cli.StringFlag{
+		Name:  "exclude-packages",
+		Value: "",
+		Usage: "Exclude by package name eg. integration",
+	},
 	cli.BoolFlag{
 		Name:  "debug",
 		Usage: "show debug message",
@@ -47,7 +52,9 @@ func action(c *cli.Context) error {
 		c.GlobalString("module-path"),
 		c.GlobalString("main-file-path"),
 		c.GlobalString("handler-path"),
-		c.GlobalBool("debug"))
+		c.GlobalString("exclude-packages"),
+		c.GlobalBool("debug"),
+	)
 	if err != nil {
 		return err
 	}
@@ -68,7 +75,8 @@ func action(c *cli.Context) error {
 		format = c.GlobalString("format")
 	}
 
-	return p.CreateOAS(c.GlobalString("output"), mode, format)
+	_, err = p.CreateOAS(c.GlobalString("output"), mode, format)
+	return err
 }
 
 func main() {
