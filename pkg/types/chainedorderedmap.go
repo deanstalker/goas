@@ -29,11 +29,6 @@ func (c *ChainedOrderedMap) Get(key string) (interface{}, bool) {
 	return c.m.Get(key)
 }
 
-// GetMap fetches the underlying orderedmap.OrderedMap
-func (c *ChainedOrderedMap) GetMap() *orderedmap.OrderedMap {
-	return c.m
-}
-
 // MarshalJSON pass through
 func (c *ChainedOrderedMap) MarshalJSON() ([]byte, error) {
 	return c.m.MarshalJSON()

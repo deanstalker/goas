@@ -11,11 +11,15 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-// GetModulePath fetches the path to the go.mod file
-func GetModulePath(path string) (string, error) {
+type ModulePath string
+
+func (m ModulePath) Get() (string, error) {
+	path := string(m)
 	if path == "" {
 		path, _ = os.Getwd()
 	}
+
+	path = fmt.Sprintf("%s/go.mod", path)
 
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -25,9 +29,8 @@ func GetModulePath(path string) (string, error) {
 	return modfile.ModulePath(data), nil
 }
 
-// CheckModulePathExists ensure the path to the go.mod file exists
-func CheckModulePathExists(modulePath string) (string, error) {
-	// check modulePath is exist
+func (m ModulePath) CheckPathExists() (string, error) {
+	modulePath := string(m)
 	modulePath, _ = filepath.Abs(modulePath)
 	moduleInfo, err := os.Stat(modulePath)
 	if err != nil {
@@ -36,6 +39,7 @@ func CheckModulePathExists(modulePath string) (string, error) {
 		}
 		return "", fmt.Errorf("cannot get information of %s: %s", modulePath, err)
 	}
+
 	if !moduleInfo.IsDir() {
 		return "", fmt.Errorf("modulePath should be a directory")
 	}
@@ -43,8 +47,8 @@ func CheckModulePathExists(modulePath string) (string, error) {
 	return modulePath, nil
 }
 
-// CheckGoModExists will check if the go.mod file exists
-func CheckGoModExists(modulePath string) (string, os.FileInfo, error) {
+func (m ModulePath) CheckGoModExists() (string, os.FileInfo, error) {
+	modulePath := string(m)
 	goModFilePath := filepath.Join(modulePath, "go.mod")
 	goModFileInfo, err := os.Stat(goModFilePath)
 	if err != nil {
@@ -60,8 +64,9 @@ func CheckGoModExists(modulePath string) (string, os.FileInfo, error) {
 	return goModFilePath, goModFileInfo, nil
 }
 
-// CheckMainFilePathExists will check to see if the main.go file exists in the main file path
-func CheckMainFilePathExists(mainFilePath, modulePath string) (string, error) {
+func (m ModulePath) CheckMainFilePathExists(mainFilePath string) (string, error) {
+	modulePath := string(m)
+
 	if mainFilePath == "" {
 		fns, err := filepath.Glob(filepath.Join(modulePath, "*.go"))
 		if err != nil {

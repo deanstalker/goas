@@ -22,7 +22,8 @@ import (
 
 func TestParseParamComment(t *testing.T) {
 	dir, _ := os.Getwd()
-	pkgName, _ := util.GetModulePath("go.mod")
+	modulePath := util.ModulePath("./")
+	pkgName, _ := modulePath.Get()
 	tests := map[string]struct {
 		pkgPath    string
 		pkgName    string
@@ -2446,7 +2447,8 @@ func TestIntegration(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			path, _ := util.GetModulePath("./go.mod")
+			modulePath := util.ModulePath("./")
+			path, _ := modulePath.Get()
 			p, _ := newParser(
 				"./",
 				"test/integration/docs.go",
@@ -2506,7 +2508,8 @@ func commentSliceToCommentGroup(commentSlice []string) []*ast.CommentGroup {
 }
 
 func partialBootstrap() (*parser, error) {
-	path, _ := util.GetModulePath("./go.mod")
+	modulePath := util.ModulePath("./")
+	path, _ := modulePath.Get()
 	p, err := newParser(
 		"./",
 		"./main.go",

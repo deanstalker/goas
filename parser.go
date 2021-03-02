@@ -71,7 +71,7 @@ type pkg struct {
 	Path string
 }
 
-func newParser(modulePath, mainFilePath, handlerPath, excludePackages string, debug bool) (*parser, error) {
+func newParser(modulePath util.ModulePath, mainFilePath, handlerPath, excludePackages string, debug bool) (*parser, error) {
 	p := &parser{
 		ExcludePkgs:             []string{},
 		KnownPkgs:               []pkg{},
@@ -90,28 +90,28 @@ func newParser(modulePath, mainFilePath, handlerPath, excludePackages string, de
 	p.OpenAPI.Components.SecuritySchemes = map[string]*types.SecuritySchemeObject{}
 
 	// check modulePath is exist
-	modulePath, err := util.CheckModulePathExists(modulePath)
+	mp, err := modulePath.CheckPathExists()
 	if err != nil {
 		return nil, fmt.Errorf("check module path failed: %v", err)
 	}
-	p.ModulePath = modulePath
+	p.ModulePath = mp
 
 	// check go.mod file is exist
-	goModFilePath, goModFileInfo, err := util.CheckGoModExists(modulePath)
+	goModFilePath, goModFileInfo, err := modulePath.CheckGoModExists()
 	if err != nil {
 		return nil, fmt.Errorf("check go.mod file exists, failed: %v", err)
 	}
 	p.GoModFilePath = goModFilePath
 
 	// check mainFilePath is exist
-	mainFilePath, err = util.CheckMainFilePathExists(mainFilePath, modulePath)
+	mainFilePath, err = modulePath.CheckMainFilePathExists(mainFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("check main file path exists, failed: %v", err)
 	}
 	p.MainFilePath = mainFilePath
 
 	// get module name from go.mod file
-	moduleName, err := util.GetModulePath(goModFilePath)
+	moduleName, err := modulePath.Get()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get module name from go.mod file: %v", err)
 	}
