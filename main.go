@@ -14,43 +14,6 @@ import (
 
 var version = "v1.0.0"
 
-var flags = []cli.Flag{
-	cli.StringFlag{
-		Name:  "module-path",
-		Value: "",
-		Usage: gotext.Get("usage.module-path"),
-	},
-	cli.StringFlag{
-		Name:  "main-file-path",
-		Value: "",
-		Usage: gotext.Get("usage.main-file-path"),
-	},
-	cli.StringFlag{
-		Name:  "handler-path",
-		Value: "",
-		Usage: gotext.Get("usage.handler-path"),
-	},
-	cli.StringFlag{
-		Name:  "output",
-		Value: "",
-		Usage: gotext.Get("usage.output"),
-	},
-	cli.StringFlag{
-		Name:  "format",
-		Value: "json",
-		Usage: gotext.Get("usage.format"),
-	},
-	cli.StringFlag{
-		Name:  "exclude-packages",
-		Value: "",
-		Usage: gotext.Get("usage.exclude-packages"),
-	},
-	cli.BoolFlag{
-		Name:  "debug",
-		Usage: gotext.Get("usage.debug"),
-	},
-}
-
 func action(c *cli.Context) error {
 	p, err := newParser(
 		util.ModulePath(c.GlobalString("module-path")),
@@ -74,6 +37,45 @@ func action(c *cli.Context) error {
 	return err
 }
 
+func getFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:  "module-path",
+			Value: "",
+			Usage: gotext.Get("usage.module-path"),
+		},
+		cli.StringFlag{
+			Name:  "main-file-path",
+			Value: "",
+			Usage: gotext.Get("usage.main-file-path"),
+		},
+		cli.StringFlag{
+			Name:  "handler-path",
+			Value: "",
+			Usage: gotext.Get("usage.handler-path"),
+		},
+		cli.StringFlag{
+			Name:  "output",
+			Value: "",
+			Usage: gotext.Get("usage.output"),
+		},
+		cli.StringFlag{
+			Name:  "format",
+			Value: "json",
+			Usage: gotext.Get("usage.format"),
+		},
+		cli.StringFlag{
+			Name:  "exclude-packages",
+			Value: "",
+			Usage: gotext.Get("usage.exclude-packages"),
+		},
+		cli.BoolFlag{
+			Name:  "debug",
+			Usage: gotext.Get("usage.debug"),
+		},
+	}
+}
+
 func main() {
 	gotext.Configure(
 		"./locales",
@@ -90,7 +92,7 @@ func main() {
 		_ = cli.ShowAppHelp(c)
 		return nil
 	}
-	app.Flags = flags
+	app.Flags = getFlags()
 	app.Action = action
 
 	err := app.Run(os.Args)
