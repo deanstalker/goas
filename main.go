@@ -61,23 +61,14 @@ func action(c *cli.Context) error {
 		return err
 	}
 
-	mode := ModeStdOut
-	format := FormatJSON
-	if c.GlobalString("output") != "" {
-		if strings.Contains(c.GlobalString("output"), "json") {
-			mode = ModeFileWriter
-		}
-		if strings.Contains(c.GlobalString("output"), "yaml") ||
-			strings.Contains(c.GlobalString("output"), "yml") {
-			mode = ModeFileWriter
-			format = FormatYAML
-		}
-	}
-	if c.GlobalString("format") != "" {
-		format = c.GlobalString("format")
-	}
+	output := util.CLIOutput(c.GlobalString("output"))
+	format := c.GlobalString("format")
 
-	_, err = p.CreateOAS(c.GlobalString("output"), mode, format)
+	outputFormat := output.GetFormat()
+	if format != "" {
+		outputFormat = strings.ToLower(format)
+	}
+	_, err = p.CreateOAS(c.GlobalString("output"), output.GetMode(), outputFormat)
 	return err
 }
 
