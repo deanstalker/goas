@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/leonelquinteros/gotext"
+
 	"golang.org/x/mod/modfile"
 )
 
@@ -37,11 +39,11 @@ func (m ModulePath) CheckPathExists() (string, error) {
 		if os.IsNotExist(err) {
 			return "", err
 		}
-		return "", fmt.Errorf("cannot get information of %s: %s", modulePath, err)
+		return "", fmt.Errorf(gotext.Get("error.io.stat-error", modulePath, err))
 	}
 
 	if !moduleInfo.IsDir() {
-		return "", fmt.Errorf("modulePath should be a directory")
+		return "", fmt.Errorf(gotext.Get("error.io.expected-directory", "module path"))
 	}
 
 	return modulePath, nil
@@ -55,10 +57,10 @@ func (m ModulePath) CheckGoModExists() (string, os.FileInfo, error) {
 		if os.IsNotExist(err) {
 			return "", nil, err
 		}
-		return "", nil, fmt.Errorf("cannot get information of %s: %s", goModFilePath, err)
+		return "", nil, fmt.Errorf(gotext.Get("error.io.stat-error", goModFilePath, err))
 	}
 	if goModFileInfo.IsDir() {
-		return "", nil, fmt.Errorf("%s should be a file", goModFilePath)
+		return "", nil, fmt.Errorf(gotext.Get("error.io.expected-file", goModFilePath))
 	}
 
 	return goModFilePath, goModFileInfo, nil
@@ -88,10 +90,10 @@ func (m ModulePath) CheckMainFilePathExists(mainFilePath string) (string, error)
 			if os.IsNotExist(err) {
 				return "", err
 			}
-			return "", fmt.Errorf("cannot get information of %s: %s", mainFilePath, err)
+			return "", fmt.Errorf(gotext.Get("error.io.stat-error", mainFilePath, err))
 		}
 		if mainFileInfo.IsDir() {
-			return "", fmt.Errorf("mainFilePath should not be a directory")
+			return "", fmt.Errorf(gotext.Get("error.io.expected-file", mainFilePath))
 		}
 	}
 

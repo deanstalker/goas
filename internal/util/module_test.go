@@ -7,11 +7,14 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/leonelquinteros/gotext"
+
 	"github.com/stretchr/testify/assert"
 )
 
 // TestModulePath_Get tests get abs path from modulepath
 func TestModulePath_Get(t *testing.T) {
+	gotext.Configure("../../locales", "en", "default")
 	modulePath := ModulePath("../../")
 	path, err := modulePath.Get()
 	assert.NoError(t, err)
@@ -25,6 +28,7 @@ func TestModulePath_Get(t *testing.T) {
 
 // TestModulePath_CheckPathExists check if module path exists and is valid
 func TestModulePath_CheckPathExists(t *testing.T) {
+	gotext.Configure("../../locales", "en", "default")
 	path, _ := os.Getwd()
 	path, _ = filepath.Abs(fmt.Sprintf("%s/../../", path))
 	tests := map[string]struct {
@@ -40,7 +44,7 @@ func TestModulePath_CheckPathExists(t *testing.T) {
 		"module path is not a directory": {
 			fmt.Sprintf("%s/main.go", path),
 			"",
-			fmt.Errorf("modulePath should be a directory"),
+			fmt.Errorf(gotext.Get("error.io.expected-directory", "module path")),
 		},
 		"module path does not exist": {
 			fmt.Sprintf("%s/does_not_exist/", path),
@@ -69,6 +73,7 @@ func TestModulePath_CheckPathExists(t *testing.T) {
 }
 
 func TestModulePath_CheckGoModExists(t *testing.T) {
+	gotext.Configure("../../locales", "en", "default")
 	path, _ := os.Getwd()
 	path, _ = filepath.Abs(fmt.Sprintf("%s/../../", path))
 	tests := map[string]struct {
@@ -119,6 +124,7 @@ func TestModulePath_CheckGoModExists(t *testing.T) {
 }
 
 func TestModulePath_CheckMainFilePathExists(t *testing.T) {
+	gotext.Configure("../../locales", "en", "default")
 	path, _ := os.Getwd()
 	path, _ = filepath.Abs(fmt.Sprintf("%s/../../", path))
 	tests := map[string]struct {
@@ -157,6 +163,7 @@ func TestModulePath_CheckMainFilePathExists(t *testing.T) {
 
 // TestGetModulePath test
 func TestIsMainFile(t *testing.T) {
+	gotext.Configure("../../locales", "en", "default")
 	dir, _ := os.Getwd()
 	ok, err := IsMainFile(fmt.Sprintf("%s/../../main.go", dir))
 	if err != nil {

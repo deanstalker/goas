@@ -9,6 +9,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/leonelquinteros/gotext"
+
 	"github.com/iancoleman/orderedmap"
 
 	"gopkg.in/yaml.v2"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestParseParamComment(t *testing.T) {
+	gotext.Configure("./locales", "en", "default")
 	dir, _ := os.Getwd()
 	modulePath := util.ModulePath("./")
 	pkgName, _ := modulePath.Get()
@@ -74,7 +77,7 @@ func TestParseParamComment(t *testing.T) {
 				},
 			},
 			wantSchema: make(map[string]*types.SchemaObject),
-			expectErr:  errors.New(`parseParamComment can not parse param comment "locale   path   string   true"`),
+			expectErr:  errors.New(`parseParamComment: can not parse @param comment "locale   path   string   true"`),
 		},
 		"string in body": {
 			pkgPath: dir,
@@ -551,7 +554,7 @@ func TestParseParamComment(t *testing.T) {
 						}),
 				},
 			},
-			expectErr: fmt.Errorf("unable to find discriminator field: kindle, in schema: Citrus"),
+			expectErr: fmt.Errorf("oneOf: unable to find discriminator field: kindle, in schema: Citrus"),
 		},
 		"struct in alternate package - test allOf a kind": {
 			pkgPath: dir,
@@ -1264,7 +1267,7 @@ func TestParseInfo(t *testing.T) {
 				Description: "This is a test",
 				Version:     "1.0.0",
 			},
-			expectErr: errors.New("info.title cannot not be empty"),
+			expectErr: errors.New("info.title cannot be empty"),
 		},
 		"missing version": {
 			comments: []string{
@@ -1276,7 +1279,7 @@ func TestParseInfo(t *testing.T) {
 				Description: "This is a test",
 				Version:     "",
 			},
-			expectErr: errors.New("info.version cannot not be empty"),
+			expectErr: errors.New("info.version cannot be empty"),
 		},
 	}
 
@@ -1705,7 +1708,7 @@ func TestParseInfoExternalDoc(t *testing.T) {
 				},
 				Security: []map[string][]string{},
 			},
-			expectErr: errors.New(`parseExternalDocComment can not parse externaldoc comment "https://docs.io"`),
+			expectErr: errors.New(`parseExternalDocComment: can not parse @externaldoc comment "https://docs.io"`),
 		},
 	}
 
@@ -1863,7 +1866,7 @@ func TestParseInfoTags(t *testing.T) {
 				},
 				Security: []map[string][]string{},
 			},
-			expectErr: errors.New("parseTagComment can not parse tag comment users"),
+			expectErr: errors.New(`parseTagComment: can not parse @tag comment "users"`),
 		},
 	}
 

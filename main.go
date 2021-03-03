@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/leonelquinteros/gotext"
+
 	"github.com/deanstalker/goas/internal/util"
 
 	"github.com/urfave/cli"
@@ -16,36 +18,36 @@ var flags = []cli.Flag{
 	cli.StringFlag{
 		Name:  "module-path",
 		Value: "",
-		Usage: "goas will search @comment under the module",
+		Usage: gotext.Get("usage.module-path"),
 	},
 	cli.StringFlag{
 		Name:  "main-file-path",
 		Value: "",
-		Usage: "goas will start to search @comment from this main file",
+		Usage: gotext.Get("usage.main-file-path"),
 	},
 	cli.StringFlag{
 		Name:  "handler-path",
 		Value: "",
-		Usage: "goas only search handleFunc comments under the path",
+		Usage: gotext.Get("usage.handler-path"),
 	},
 	cli.StringFlag{
 		Name:  "output",
 		Value: "",
-		Usage: "output file",
+		Usage: gotext.Get("usage.output"),
 	},
 	cli.StringFlag{
 		Name:  "format",
 		Value: "json",
-		Usage: "json (default) or yaml format - for stdout only",
+		Usage: gotext.Get("usage.format"),
 	},
 	cli.StringFlag{
 		Name:  "exclude-packages",
 		Value: "",
-		Usage: "Exclude by package name eg. integration",
+		Usage: gotext.Get("usage.exclude-packages"),
 	},
 	cli.BoolFlag{
 		Name:  "debug",
-		Usage: "show debug message",
+		Usage: gotext.Get("usage.debug"),
 	},
 }
 
@@ -73,11 +75,16 @@ func action(c *cli.Context) error {
 }
 
 func main() {
+	gotext.Configure(
+		"./locales",
+		"en",
+		"default",
+	)
 	app := cli.NewApp()
-	app.Name = "goas"
+	app.Name = gotext.Get("app.name")
 	app.Usage = ""
 	app.Version = version
-	app.Copyright = "(c) 2018 mikun800527@gmail.com"
+	app.Copyright = gotext.Get("app.copyright")
 	app.HideHelp = true
 	app.OnUsageError = func(c *cli.Context, err error, isSubcommand bool) error {
 		_ = cli.ShowAppHelp(c)

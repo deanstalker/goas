@@ -19,6 +19,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/leonelquinteros/gotext"
+
 	"gopkg.in/yaml.v2"
 
 	"github.com/deanstalker/goas/pkg/types"
@@ -89,43 +91,43 @@ func newParser(modulePath util.ModulePath, mainFilePath, handlerPath, excludePac
 	p.OpenAPI.Components.Schemas = make(map[string]*types.SchemaObject)
 	p.OpenAPI.Components.SecuritySchemes = map[string]*types.SecuritySchemeObject{}
 
-	// check modulePath is exist
+	// check modulePath exists
 	mp, err := modulePath.CheckPathExists()
 	if err != nil {
-		return nil, fmt.Errorf("check module path failed: %v", err)
+		return nil, p.Errorf(gotext.Get("error.parser.check-path-failed", "module", err))
 	}
 	p.ModulePath = mp
 
-	// check go.mod file is exist
+	// check go.mod file exists
 	goModFilePath, goModFileInfo, err := modulePath.CheckGoModExists()
 	if err != nil {
-		return nil, fmt.Errorf("check go.mod file exists, failed: %v", err)
+		return nil, p.Errorf("error.parser.check-file-failed", "go.mod", err)
 	}
 	p.GoModFilePath = goModFilePath
 
 	// check mainFilePath is exist
 	mainFilePath, err = modulePath.CheckMainFilePathExists(mainFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("check main file path exists, failed: %v", err)
+		return nil, p.Errorf("error.parser.check-path-failed", "main file", err)
 	}
 	p.MainFilePath = mainFilePath
 
 	// get module name from go.mod file
 	moduleName, err := modulePath.Get()
 	if err != nil {
-		return nil, fmt.Errorf("unable to get module name from go.mod file: %v", err)
+		return nil, p.Errorf("error.parser.get-module-name-failed", "go.mod file", err)
 	}
 	if moduleName == "" {
-		return nil, fmt.Errorf("cannot get module name from %s", goModFileInfo)
+		return nil, p.Errorf("error.parser.get-module-name-failed", goModFileInfo, nil)
 	}
 	p.ModuleName = moduleName
 
-	// check go module cache path is exist ($GOPATH/pkg/mod)
+	// check go module cache path is exists ($GOPATH/pkg/mod)
 	goPath := os.Getenv("GOPATH")
 	if goPath == "" {
 		u, uerr := user.Current()
 		if uerr != nil {
-			return nil, fmt.Errorf("cannot get current user: %s", uerr)
+			return nil, p.Errorf("error.parser.get-current-user-failed", uerr)
 		}
 		goPath = filepath.Join(u.HomeDir, "go")
 	}
@@ -135,10 +137,10 @@ func newParser(modulePath util.ModulePath, mainFilePath, handlerPath, excludePac
 		if os.IsNotExist(err) {
 			return nil, err
 		}
-		return nil, fmt.Errorf("cannot get information of %s: %s", goModCachePath, err)
+		return nil, p.Errorf("error.io.stat-error", goModCachePath, err)
 	}
 	if !goModCacheInfo.IsDir() {
-		return nil, fmt.Errorf("%s should be a directory", goModCachePath)
+		return nil, p.Errorf("error.io.expected-directory", goModCachePath)
 	}
 	p.GoModCachePath = goModCachePath
 
@@ -149,7 +151,7 @@ func newParser(modulePath util.ModulePath, mainFilePath, handlerPath, excludePac
 			if os.IsNotExist(err) {
 				return nil, err
 			}
-			return nil, fmt.Errorf("cannot get information of %s: %s", handlerPath, err)
+			return nil, p.Errorf("error.io.stat-error", handlerPath, err)
 		}
 	}
 	p.HandlerPath = handlerPath
@@ -205,7 +207,7 @@ func (p *parser) CreateOAS(path, mode, format string) (*string, error) {
 	case ModeFileWriter:
 		fd, err = os.Create(path)
 		if err != nil {
-			return nil, fmt.Errorf("can not create the file %s: %v", path, err)
+			return nil, p.Errorf("error.io.write-error", path, err)
 		}
 		defer fd.Close()
 		_, _ = fd.WriteString(string(output))
@@ -219,10 +221,14 @@ func (p *parser) CreateOAS(path, mode, format string) (*string, error) {
 	return nil, err
 }
 
+func (p *parser) Errorf(format string, args ...interface{}) error {
+	return fmt.Errorf(gotext.Get(format, args...))
+}
+
 func (p *parser) parseFileComments() ([]*ast.CommentGroup, error) {
 	fileTree, err := goparser.ParseFile(token.NewFileSet(), p.MainFilePath, nil, goparser.ParseComments)
 	if err != nil {
-		return nil, fmt.Errorf("can not parse general API information: %v", err)
+		return nil, p.Errorf("error.parser.parse-file-comments-failed", err)
 	}
 
 	return fileTree.Comments, nil
@@ -304,7 +310,7 @@ func (p *parser) parseInfo(comments []*ast.CommentGroup) error {
 				_, err := url.ParseRequestURI(fields[0])
 				// allow server variable tokens through
 				if err != nil && !strings.Contains(fields[0], "{") {
-					return fmt.Errorf(`server: "%s" is not a valid URL`, fields[0])
+					return p.Errorf(`error.parser.invalid-url`, fields[0])
 				}
 				s := types.ServerObject{
 					URL:         fields[0],
@@ -333,7 +339,7 @@ func (p *parser) parseInfo(comments []*ast.CommentGroup) error {
 					return err
 				}
 				if externalDocs == nil {
-					return fmt.Errorf("couldn't populate externalDocs")
+					return p.Errorf("error.parser.could-not-populate", types.AttributeExternalDoc)
 				}
 
 				p.OpenAPI.ExternalDocs = externalDocs
@@ -369,14 +375,14 @@ func (p *parser) parseInfo(comments []*ast.CommentGroup) error {
 
 func (p *parser) validateInfo() error {
 	if p.OpenAPI.Info.Title == "" {
-		return fmt.Errorf("info.title cannot not be empty")
+		return p.Errorf("error.parser.required-comment", "info.title")
 	}
 	if p.OpenAPI.Info.Version == "" {
-		return fmt.Errorf("info.version cannot not be empty")
+		return p.Errorf("error.parser.required-comment", "info.version")
 	}
 	for i := range p.OpenAPI.Servers {
 		if p.OpenAPI.Servers[i].URL == "" {
-			return fmt.Errorf("servers[%d].url cannot not be empty", i)
+			return p.Errorf("error.parser.required-comment", fmt.Sprintf("servers[%d].url", i))
 		}
 	}
 	return nil
@@ -517,7 +523,7 @@ func (p *parser) parseImportStatements() error {
 
 		astPkgs, err := p.getPkgAst(pkgPath)
 		if err != nil {
-			return fmt.Errorf("parseImportStatements: parse of %s package cause error: %s", pkgPath, err)
+			return p.Errorf("error.parser.package-parse-error", "parseImportStatements", pkgPath, err)
 		}
 
 		p.PkgNameImportedPkgAlias[pkgName] = map[string][]string{}
@@ -562,7 +568,7 @@ func (p *parser) parseTypeSpecs() error {
 		}
 		astPkgs, err := p.getPkgAst(pkgPath)
 		if err != nil {
-			return fmt.Errorf("parseTypeSpecs: parse of %s package cause error: %s", pkgPath, err)
+			return p.Errorf("error.parser.package-parse-error", "parseTypeSpecs", pkgPath, err)
 		}
 		for _, astPackage := range astPkgs {
 			for _, astFile := range astPackage.Files {
@@ -628,7 +634,7 @@ func (p *parser) parsePaths() error {
 
 		astPkgs, err := p.getPkgAst(pkgPath)
 		if err != nil {
-			return fmt.Errorf("parsePaths: parse of %s package cause error: %s", pkgPath, err)
+			return p.Errorf("error.parser.package-parse-error", "parsePaths", pkgPath, err)
 		}
 		for _, astPackage := range astPkgs {
 			for _, astFile := range astPackage.Files {
@@ -714,7 +720,7 @@ func (p *parser) parseOperation(pkgPath, pkgName string, astComments []*ast.Comm
 				return err
 			}
 			if externalDocs == nil {
-				return fmt.Errorf("couldn't populate externalDocs")
+				return p.Errorf("error.parser.could-not-populate", types.AttributeExternalDoc)
 			}
 
 			operation.ExternalDocs = externalDocs
@@ -819,7 +825,7 @@ func (p *parser) parseServerVariableComment(comment string, server types.ServerO
 	matches := re.FindStringSubmatch(comment)
 	validSegments := 5
 	if len(matches) != validSegments {
-		return nil, fmt.Errorf(`parseServerVariableComment can not parse servervariable comment %s`, comment)
+		return nil, p.Errorf("error.parser.can-not-parse-comment", "parseServerVariableComment", types.AttributeServerVariable, comment)
 	}
 
 	if !strings.Contains(server.URL, fmt.Sprintf(`{%s}`, matches[1])) {
@@ -849,7 +855,7 @@ func (p *parser) parseExternalDocComment(comment string) (*types.ExternalDocumen
 	matches := re.FindStringSubmatch(comment)
 	validSegments := 3
 	if len(matches) != validSegments {
-		return nil, fmt.Errorf("parseExternalDocComment can not parse externaldoc comment \"%s\"", comment)
+		return nil, p.Errorf("error.parser.can-not-parse-comment", "parseExternalDocComment", types.AttributeExternalDoc, comment)
 	}
 	extURL := matches[1]
 	description := matches[2]
@@ -867,7 +873,7 @@ func (p *parser) parseTagComment(comment string) (*types.TagObject, error) {
 	matches := re.FindStringSubmatch(comment)
 
 	if len(matches) != 5 || matches[1] == "" || matches[2] == "" {
-		return nil, fmt.Errorf(`parseTagComment can not parse tag comment %s`, comment)
+		return nil, p.Errorf("error.parser.can-not-parse-comment", "parseTagComment", types.AttributeTag, comment)
 	}
 
 	tag := &types.TagObject{
@@ -894,7 +900,7 @@ func (p *parser) parseParamComment(pkgPath, pkgName string, operation *types.Ope
 	matches := re.FindStringSubmatch(comment)
 	validSegments := 6
 	if len(matches) != validSegments {
-		return fmt.Errorf("parseParamComment can not parse param comment \"%s\"", comment)
+		return p.Errorf("error.parser.can-not-parse-comment", "parseParamComment", types.AttributeParam, comment)
 	}
 	name := matches[1]
 	in := matches[2]
@@ -917,7 +923,7 @@ func (p *parser) parseParamComment(pkgPath, pkgName string, operation *types.Ope
 	// `path`, `query`, `header`, `cookie`
 	if in != types.InBody {
 		if err := p.handleParam(name, in, operation, description, goType, required, pkgPath, pkgName); err != nil {
-			return fmt.Errorf("unable to handle params: %v", err)
+			return p.Errorf("error.parser.unable-to-handle-params", "parseParamComment", err)
 		}
 		return nil
 	}
@@ -932,7 +938,7 @@ func (p *parser) parseParamComment(pkgPath, pkgName string, operation *types.Ope
 	if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[]") || goType == types.GoTypeTime {
 		schema, err := p.parseSchemaObject(pkgPath, pkgName, name, goType)
 		if err != nil {
-			return fmt.Errorf("parseResponseComment cannot parse goType: %s", goType)
+			return p.Errorf("error.parser.can-not-parse-gotype", "parseResponseComment", goType)
 		}
 		operation.RequestBody.Content[types.ContentTypeJSON] = &types.MediaTypeObject{
 			Schema: *schema,
@@ -982,7 +988,7 @@ func (p *parser) handleParam(
 		var err error
 		parameterObject.Schema, err = p.parseSchemaObject(pkgPath, pkgName, name, goType)
 		if err != nil {
-			return fmt.Errorf("parseResponseComment cannot parse goType: %s", goType)
+			return p.Errorf("error.parser.can-not-parse-gotype", "parseResponseComment", goType)
 		}
 		operation.Parameters = append(operation.Parameters, parameterObject)
 	} else if types.IsGoTypeOASType(goType) {
@@ -1053,14 +1059,14 @@ func (p *parser) parseResponseHeader(pkgPath, pkgName string, operation *types.O
 	}
 
 	if len(matches) <= minValidSegments {
-		return fmt.Errorf("parseResponseHeader can not parse response header \"%s\", matches: %v", comment, matches)
+		return p.Errorf("error.parser.invalid-comment", "response header", comment, matches)
 	}
 
 	status := paramsMap["status"]
 	if strings.EqualFold(status, "default") {
 		_, err := strconv.Atoi(status)
 		if err != nil {
-			return fmt.Errorf("parseResponseHeader: http status must be int, but got %s", status)
+			return p.Errorf("error.parser.unexpected-type", "parseResponseHeader", "http status", "int", status)
 		}
 	}
 
@@ -1084,7 +1090,7 @@ func (p *parser) parseResponseHeader(pkgPath, pkgName string, operation *types.O
 		if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[]") {
 			schema, err := p.parseSchemaObject(pkgPath, pkgName, "", goType)
 			if err != nil {
-				return fmt.Errorf("parseResponseHeader: cannot parse goType: %s", goType)
+				return p.Errorf("error.parser.can-not-parse-gotype", "parseResponseHeader", goType)
 			}
 			responseObject.Headers[paramsMap["name"]] = &types.HeaderObject{
 				Description: strings.Trim(paramsMap["description"], "\""),
@@ -1133,14 +1139,14 @@ func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *types.
 	}
 
 	if len(matches) <= minValidSegments {
-		return fmt.Errorf("parseResponseComment can not parse response comment \"%s\", matches: %v", comment, matches)
+		return p.Errorf("error.parser.invalid-comment", "parseResponseComment", comment, matches)
 	}
 
 	status := paramsMap["status"]
 	if !strings.EqualFold(status, "default") {
 		_, err := strconv.Atoi(status)
 		if err != nil {
-			return fmt.Errorf("parseResponseComment: http status must be int, but got %s", status)
+			return p.Errorf("error.parser.unexpected-type", "parseResponseComment", "http status", "int", status)
 		}
 	}
 
@@ -1149,7 +1155,7 @@ func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *types.
 		switch jsonType {
 		case types.TypeObject, types.TypeArray, "{object}", "{array}":
 		default:
-			return fmt.Errorf("parseResponseComment: invalid jsonType \"%s\"", paramsMap["jsonType"])
+			return p.Errorf("error.parser.invalid-type", "parseResponseComment", "jsonType", paramsMap["jsonType"])
 		}
 	}
 
@@ -1164,7 +1170,7 @@ func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *types.
 		if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[]") {
 			schema, err := p.parseSchemaObject(pkgPath, pkgName, "", goType)
 			if err != nil {
-				return fmt.Errorf("parseResponseComment: cannot parse goType: %s", goType)
+				return p.Errorf("error.parser.can-not-parse-gotype", "parseResponseComment", goType)
 			}
 			responseObject.Content[types.ContentTypeJSON] = &types.MediaTypeObject{
 				Schema: *schema,
@@ -1195,7 +1201,7 @@ func (p *parser) parseResponseComment(pkgPath, pkgName string, operation *types.
 }
 
 func (p *parser) parseRouteComment(operation *types.OperationObject, comment string) error {
-	sourceString := strings.TrimSpace(comment[len("@Router"):])
+	sourceString := strings.TrimSpace(comment[len(types.AttributeRouter):])
 	validSegments := 3
 
 	// /path [method]
@@ -1203,7 +1209,7 @@ func (p *parser) parseRouteComment(operation *types.OperationObject, comment str
 	re := regexp.MustCompile(`([\w./\-{}]+)[^\[]+\[([^\]]+)`)
 	matches := re.FindStringSubmatch(sourceString)
 	if len(matches) != validSegments {
-		return fmt.Errorf(`can not parse router comment "%s", skipped`, comment)
+		return p.Errorf("error.parser.skip-invalid-comment", types.AttributeRouter, comment)
 	}
 
 	_, ok := p.OpenAPI.Paths[matches[1]]
@@ -1320,7 +1326,7 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName, typeName string)
 				}
 			}
 			if !exist {
-				log.Fatalf("Can not find definition of %s ast.TypeSpec. Current package %s", typeName, pkgName)
+				log.Fatalf(gotext.Get("error.parser.missing-definition", typeName, pkgName))
 			}
 		}
 		schemaObject.PkgName = pkgName
@@ -1363,7 +1369,7 @@ func (p *parser) parseSchemaObject(pkgPath, pkgName, fieldName, typeName string)
 
 			typeSpec, exist = p.getTypeSpec(guessPkgName, guessTypeName)
 			if !exist {
-				return schemaObject, fmt.Errorf("can not find definition of guess %s ast.TypeSpec in package %s", guessTypeName, guessPkgName)
+				return schemaObject, p.Errorf("error.parser.missing-guess-definition", fmt.Sprintf("guess %s", guessTypeName), guessPkgName)
 			}
 			schemaObject.PkgName = guessPkgName
 			schemaObject.ID = util.GenSchemaObjectID(guessTypeName)
@@ -1425,7 +1431,7 @@ func (p *parser) handleArrayType(schemaObject *types.SchemaObject, t *ast.ArrayT
 	if !types.IsBasicGoType(typeAsString) {
 		schemaItemsSchemaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 		if err != nil {
-			return fmt.Errorf("parseSchemaObject parse array items err: %v", err)
+			return p.Errorf("error.parser.could-not-register-type", "array", err)
 		}
 		schemaObject.Items.Ref = util.AddSchemaRefLinkPrefix(schemaItemsSchemaObjectID)
 	} else if types.IsGoTypeOASType(typeAsString) {
@@ -1447,7 +1453,7 @@ func (p *parser) handleMapType(fieldName string, schemaObject *types.SchemaObjec
 	if !types.IsBasicGoType(typeAsString) {
 		schemaItemsSchemaObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 		if err != nil {
-			return fmt.Errorf("parseSchemaObject parse array items err: %v", err)
+			return p.Errorf("error.parser.could-not-register-type", "array", err)
 		}
 		propertySchema.Ref = util.AddSchemaRefLinkPrefix(schemaItemsSchemaObjectID)
 	} else if types.IsGoTypeOASType(typeAsString) {
@@ -1494,27 +1500,27 @@ astFieldsLoop:
 		if strings.HasPrefix(typeAsString, "[]") {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				return fmt.Errorf("could not parse type %s as array: %v", typeAsString, err)
+				return p.Errorf("error.parser.could-not-parse-type", "array", typeAsString, err)
 			}
 		} else if strings.HasPrefix(typeAsString, "map[]") {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				return fmt.Errorf("could not parse type %s as map: %v", typeAsString, err)
+				return p.Errorf("error.parser.could-not-parse-type", "map", typeAsString, err)
 			}
 		} else if typeAsString == types.GoTypeTime {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				return fmt.Errorf("could not parse type %s as time.Time: %v", typeAsString, err)
+				return p.Errorf("error.parser.could-not-parse-type", "time.Time", typeAsString, err)
 			}
 		} else if strings.HasPrefix(typeAsString, "interface{}") {
 			fieldSchema, err = p.parseSchemaObject(pkgPath, pkgName, "", typeAsString)
 			if err != nil {
-				return fmt.Errorf("could not parse type %s as interface{}: %v", typeAsString, err)
+				return p.Errorf("error.parser.could-not-parse-type", "interface{}", typeAsString, err)
 			}
 		} else if !types.IsBasicGoType(typeAsString) {
 			fieldSchemaSchemeObjectID, err := p.registerType(pkgPath, pkgName, typeAsString)
 			if err != nil {
-				return fmt.Errorf("could not register type %s: %v", typeAsString, err)
+				return p.Errorf("error.parser.could-not-register-type", typeAsString, err)
 			}
 			fieldSchema.ID = fieldSchemaSchemeObjectID
 			schema, ok := p.KnownIDSchema[fieldSchemaSchemeObjectID]
@@ -1696,7 +1702,7 @@ func (p *parser) handleMultipleOf(astFieldTag reflect.StructTag, fieldSchema *ty
 		case types.TypeNumber:
 			fieldSchema.MultipleOf, _ = strconv.ParseFloat(multipleOf, 64)
 		default:
-			return fmt.Errorf(`unable to parse %s value: %v`, "multipleOf", multipleOf)
+			return p.Errorf("error.parser.unable-to-parse-value", "multipleOf", "multipleOf", multipleOf)
 		}
 	}
 	return nil
@@ -1710,7 +1716,7 @@ func (p *parser) handleRange(astFieldTag reflect.StructTag, fieldSchema *types.S
 		case types.TypeNumber:
 			fieldSchema.Minimum, _ = strconv.ParseFloat(min, 64)
 		default:
-			return fmt.Errorf("unable to parse %s value: %v", "minimum", min)
+			return p.Errorf("error.parser.unable-to-parse-value", "range", "minimum", min)
 		}
 	}
 
@@ -1721,7 +1727,7 @@ func (p *parser) handleRange(astFieldTag reflect.StructTag, fieldSchema *types.S
 		case types.TypeNumber:
 			fieldSchema.Maximum, _ = strconv.ParseFloat(max, 64)
 		default:
-			return fmt.Errorf("unable to parse %s value: %v", "maximum", max)
+			return p.Errorf("error.parser.unable-to-parse-value", "range", "maximum", max)
 		}
 	}
 
@@ -1779,7 +1785,7 @@ func (p *parser) handleAllOfTag(astFieldTag reflect.StructTag, fieldSchema *type
 		for _, typeName := range typeNames {
 			schemaObject, err := p.parseSchemaObject("", "", "", typeName)
 			if err != nil {
-				return fmt.Errorf("unable to find object with name %s: %v", typeName, err)
+				return p.Errorf("error.parser.missing-object-with-name", "allOf", typeName, err)
 			}
 			fieldSchema.AllOf = append(fieldSchema.AllOf, &types.ReferenceObject{
 				Ref: util.AddSchemaRefLinkPrefix(schemaObject.ID),
@@ -1800,12 +1806,12 @@ func (p *parser) handleOneOfTag(astFieldTag reflect.StructTag, fieldSchema *type
 		for _, typeName := range typeNames {
 			schemaObject, err := p.parseSchemaObject("", "", "", typeName)
 			if err != nil {
-				return fmt.Errorf("unable to find object with name %s: %v", typeName, err)
+				return p.Errorf("error.parser.missing-object-with-name", "oneOf", typeName, err)
 			}
 
 			if fieldSchema.Discriminator != nil && schemaObject.Properties != nil {
 				if _, ok := schemaObject.Properties.Get(fieldSchema.Discriminator.PropertyName); !ok {
-					return fmt.Errorf("unable to find discriminator field: %s, in schema: %s", fieldSchema.Discriminator.PropertyName, schemaObject.ID)
+					return p.Errorf("error.parser.missing-discriminator-field", "oneOf", fieldSchema.Discriminator.PropertyName, schemaObject.ID)
 				}
 			}
 
@@ -1823,7 +1829,7 @@ func (p *parser) handleAnyOfTag(astFieldTag reflect.StructTag, fieldSchema *type
 		for _, typeName := range typeNames {
 			schemaObject, err := p.parseSchemaObject("", "", "", typeName)
 			if err != nil {
-				return fmt.Errorf("unable to find object with name %s: %v", typeName, err)
+				return p.Errorf("error.parser.missing-object-with-name", "anyOf", typeName, err)
 			}
 			fieldSchema.AnyOf = append(fieldSchema.AnyOf, &types.ReferenceObject{
 				Ref: util.AddSchemaRefLinkPrefix(schemaObject.ID),
@@ -1866,7 +1872,7 @@ func (p *parser) getTypeAsString(fieldType interface{}) string {
 func (p *parser) validateOperationID(id string) error {
 	for _, oid := range p.KnownOperationIDs {
 		if oid == id {
-			return fmt.Errorf("operationID %s is already in use", id)
+			return p.Errorf("error.parser.discrete-id-in-use", fmt.Sprintf("operationID %s", id))
 		}
 	}
 

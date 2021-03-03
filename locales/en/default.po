@@ -1,0 +1,107 @@
+msgid "app.name"
+msgstr "goas"
+
+msgid "app.copyright"
+msgstr "(c) 2018 mikun800527@gmail.com"
+
+msgid "usage.module-path"
+msgstr "goas will search for the go.mod file here"
+
+msgid "usage.main-file-path"
+msgstr "goas will start searching for @comments from this path"
+
+msgid "usage.handler-path"
+msgstr "goas will only search for handler comments under this path"
+
+msgid "usage.output"
+msgstr "the path that goas will output the spec to - specify .json, .yaml or .yml files to switch encoding formats"
+
+msgid "usage.format"
+msgstr "json (default) or yaml format - for stdout only"
+
+msgid "usage.exclude-packages"
+msgstr "exclude by package name eg. integration"
+
+msgid "usage.debug"
+msgstr "show debug messages"
+
+msgid "error.io.stat-error"
+msgstr "cannot get information of %s: %s"
+
+msgid "error.io.expected-directory"
+msgstr "%s should be a directory"
+
+msgid "error.io.expected-file"
+msgstr "%s should be a file"
+
+msgid "error.parser.check-path-failed"
+msgstr "check %s path failed: %v"
+
+msgid "error.parser.check-file-failed"
+msgstr "check %s file failed: %v"
+
+msgid "error.parser.get-module-name-failed"
+msgstr "unable to get module name from %s: %v"
+
+msgid "error.parser.get-current-user-failed"
+msgstr "cannot retrieve current user: %s"
+
+msgid "error.io.write-error"
+msgstr "unable to create file %s: %v"
+
+msgid "error.parser.parse-file-comments-failed"
+msgstr "can not parse general API instructions: %v"
+
+msgid "error.parser.invalid-url"
+msgstr "server: \"%s\" is not a valid URL"
+
+msgid "error.parser.could-not-populate"
+msgstr "couldn't populate %s"
+
+msgid "error.parser.required-comment"
+msgstr "%s cannot be empty"
+
+msgid "error.parser.package-parse-error"
+msgstr "%s: parsing of %s package caused an error: %v"
+
+msgid "error.parser.can-not-parse-comment"
+msgstr "%s: can not parse %s comment \"%s\""
+
+msgid "error.parser.can-not-parse-gotype"
+msgstr "%s: can not parse goType: %s"
+
+msgid "error.parser.unable-to-handle-params"
+msgstr "%s: unable to handle params: %v"
+
+msgid "error.parser.discrete-id-in-use"
+msgstr "%s is already in use"
+
+msgid "error.parser.missing-object-with-name"
+msgstr "%s: unable to find object with name %s: %v"
+
+msgid "error.parser.missing-discriminator-field"
+msgstr "%s: unable to find discriminator field: %s, in schema: %s"
+
+msgid "error.parser.unable-to-parse-value"
+msgstr "%s: unable to parse %s value: %v"
+
+msgid "error.parser.could-not-register-type"
+msgstr "could not register type %s: %v"
+
+msgid "error.parser.could-not-parse-type"
+msgstr "could not parse type %s as %s: %v"
+
+msgid "error.parser.missing-definition"
+msgstr "can not find definition of %s ast.TypeSpec in package %s"
+
+msgid "error.parser.skip-invalid-comment"
+msgstr "can not parse %s comment '%s', skipped"
+
+msgid "error.parser.invalid-comment"
+msgstr "can not parse %s comment '%s', matches: %v"
+
+msgid "error.parser.invalid-type"
+msgstr "%s: invalid %s '%s'"
+
+msgid "error.parser.unexpected-type"
+msgstr "%s: %s must be %s, but got %s"
